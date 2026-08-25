@@ -1,480 +1,954 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<!--
-═══════════════════════════════════════════════════════════════════════════
- KALI LINUX TERMINAL — CINEMATIC AUTO-PLAY (final build untuk TikTok)
-───────────────────────────────────────────────────────────────────────────
- ANALISIS MASALAH VERSI SEBELUMNYA:
- [M1] Menunggu input manual (login → ketik sendiri) → layar "diam" saat
-      dibuka; tidak cocok untuk video.
- [M2] Rendering DOM → tidak bisa direkam menjadi file video secara
-      pixel-perfect.
- [M3] Tidak ada perekam/export WebM.
- [M4] Layar horizontal; format TikTok butuh 9:16 vertikal.
- [M5] Beberapa penanda "simulasi" (judul/label) masih terlihat.
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AXION Neuralis - Motion Graphic 40 Detik</title>
+    <style>
+        :root {
+            --bg-deep: #030510;
+            --cyan-electric: #00e5ff;
+            --cyan-glow: #00f0ff;
+        }
 
- PERBAIKAN:
- [F1] AUTO-PLAY: begitu halaman dibuka, sesi hacking langsung berjalan —
-      boot kernel → login tty1 → recon (nmap, gobuster) → kredensial
-      bocor (.env) → brute force (hydra) → akses SSH → enumerasi
-      (whoami, sudo -l) → privilege escalation (GTFOBins vim) → root →
-      flag → logout. Loop otomatis untuk preview.
- [F2] Renderer CANVAS 1080×1920 (9:16) — output identik dengan hasil
-      rekaman, font JetBrains Mono, prompt asli zsh Kali:
-      ┌──(kali㉿kali)-[~] / └─$  (dan prompt remote/root target).
- [F3] Detail manusiawi agar tidak terlihat simulasi: kecepatan ketik
-      bervariasi, jeda "mikir" sebelum Enter, satu typo + backspace,
-      password tidak ditampilkan (masked), kursor blok berkedip.
- [F4] Tombol "⏺ REKAM & SIMPAN WEBM": skenario diulang dari awal sambil
-      direkam (canvas.captureStream 30fps + MediaRecorder VP9 ~9 Mbps),
-      berhenti otomatis di akhir, file .webm langsung terunduh.
-      Tombol ⏹ STOP untuk henti lebih awal. HUD/tombol adalah DOM
-      sehingga TIDAK ikut terekam ke video.
- [F5] Fallback codec (vp9 → vp8 → webm → mp4) + pesan error jelas bila
-      browser tidak mendukung.
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
- VERIFIKASI (review statis alur):
- [V1] runId/token membatalkan preview lama saat rekaman dimulai → tidak
-      ada dua skenario berjalan bersamaan.
- [V2] reset() dipanggil sebelum setiap run → tidak ada sisa frame.
- [V3] onstop MediaRecorder → Blob → download otomatis; timer dibersihkan.
- [V4] Semua target fiktif (192.168.1.20, SOW-2026-0814) dalam konteks
-      pentest resmi; tidak ada fungsionalitas nyata yang berbahaya.
-═══════════════════════════════════════════════════════════════════════════
--->
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>kali@kali: ~</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.18/400.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.18/700.css">
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{height:100%;background:#040506;overflow:hidden;
-    font-family:'JetBrains Mono',monospace;color:#cfd3cd}
-  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-  canvas{height:100vh;max-width:100vw;aspect-ratio:9/16;background:#000;
-    box-shadow:0 0 90px rgba(0,0,0,.95)}
-  #tip{position:fixed;top:10px;left:50%;transform:translateX(-50%);
-    font-size:11px;color:#5f6a73;z-index:10;text-align:center;max-width:94vw;line-height:1.5}
-  #tip b{color:#8ab4ff}
-  #hud{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
-    display:flex;align-items:center;gap:10px;z-index:10;
-    background:rgba(10,12,14,.85);border:1px solid #23282e;border-radius:12px;
-    padding:10px 14px;backdrop-filter:blur(8px)}
-  button{font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.4px;
-    color:#fff;background:#1d4ed8;border:1px solid #3b6fe0;border-radius:8px;
-    padding:9px 14px;cursor:pointer;transition:background .15s,transform .05s}
-  button:hover{background:#2563eb}
-  button:active{transform:scale(.97)}
-  button:disabled{background:#22282f;border-color:#2c333b;color:#7c858e;cursor:not-allowed;transform:none}
-  #btnStop{background:#7f1d1d;border-color:#b91c1c}
-  #btnStop:hover{background:#991b1b}
-  #status{font-size:12px;color:#9aa4ad;min-width:230px;text-align:center}
-  #status b{color:#ff5555}
-  @media (max-width:700px){
-    #hud{gap:6px;padding:8px 10px;bottom:8px}
-    button{font-size:11px;padding:8px 10px}
-    #status{min-width:120px;font-size:10px}
-    #tip{font-size:9px}
-  }
-</style>
+        body {
+            background: var(--bg-deep);
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            cursor: default;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .ui-overlay {
+            position: fixed;
+            bottom: 30px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .ui-overlay button {
+            pointer-events: auto;
+            background: rgba(0, 229, 255, 0.15);
+            border: 1px solid rgba(0, 229, 255, 0.6);
+            color: #fff;
+            padding: 12px 28px;
+            font-size: 1rem;
+            letter-spacing: 0.2em;
+            border-radius: 30px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
+            margin-bottom: 10px;
+        }
+
+        .ui-overlay button:hover {
+            background: rgba(0, 229, 255, 0.3);
+            box-shadow: 0 0 35px rgba(0, 229, 255, 0.6);
+            transform: scale(1.05);
+        }
+
+        .ui-overlay button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .progress-container {
+            width: 180px;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--cyan-electric);
+            box-shadow: 0 0 15px var(--cyan-glow), 0 0 45px rgba(0, 229, 255, 0.5);
+            border-radius: 3px;
+            transition: width 0.1s linear;
+        }
+
+        .status-text {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 0.75rem;
+            letter-spacing: 0.25em;
+            pointer-events: none;
+        }
+
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+            letter-spacing: 0.3em;
+            z-index: 100;
+            pointer-events: none;
+            animation: pulse-loading 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-loading {
+            0%,
+            100% {
+                opacity: 0.4;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
 </head>
 <body>
-<div id="tip">Klik <b>⏺ REKAM &amp; SIMPAN WEBM</b> → animasi diputar ulang dari awal sambil direkam → file otomatis terunduh.<br>Tombol &amp; status tidak ikut terekam (hanya canvas yang ditangkap).</div>
-<div id="stage"><canvas id="cv" width="1080" height="1920"></canvas></div>
-<div id="hud">
-  <button id="btnRec">⏺ REKAM &amp; SIMPAN WEBM</button>
-  <button id="btnStop" disabled>⏹ STOP</button>
-  <div id="status">Memuat font & engine…</div>
-</div>
 
-<script>
-'use strict';
-/* ═══════════════ konstanta renderer ═══════════════ */
-const W=1080,H=1920,FONT=34,LH=46,PADX=44,PADT=52;
-const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
-const CLR={w:'#dcdcdc',g:'#8a938a',b:'#5c9dff',c:'#37d2ff',gr:'#4af626',
-           r:'#ff5555',y:'#ffd75f',m:'#d0a5ff',W:'#ffffff'};
-let charW=20,COLS=48,ROWS=39;
+    <div id="loading">AXION NEURALIS</div>
 
-/* model teks */
-const lines=[];   // baris visual final (wrapped): [{t,c},...]
-let cur=[];       // baris berjalan
-let typing=false;
+    <div id="canvas-container"></div>
 
-const state={runId:0,recording:false};
-let DEAD=()=>true;
+    <div class="ui-overlay">
+        <button id="download-btn" disabled>🔴 RECORD & DOWNLOAD (WEBM)</button>
+        <div class="progress-container">
+            <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="status-text" id="status-text">■ 0:00 / 0:40</div>
+    </div>
 
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const rand=(a,b)=>a+Math.floor(Math.random()*(b-a));
-const seg=(...p)=>p.map(([t,c])=>({t,c}));
-const L=(t,c,d)=>({s:seg([t,c]),d});
+    <!-- Three.js dan GSAP dari CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js">
+    </script>
 
-/* ═══════════════ wrap / push / edit ═══════════════ */
-function wrap(s){
-  const out=[];let row=[],n=0;
-  for(const g of s){
-    let t=g.t;
-    while(n+t.length>COLS){
-      const k=COLS-n;
-      if(k>0)row.push({t:t.slice(0,k),c:g.c});
-      out.push(row);row=[];n=0;t=t.slice(k);
-    }
-    if(t.length){row.push({t,c:g.c});n+=t.length;}
-  }
-  out.push(row);return out;
-}
-function pushSegs(s){for(const r of wrap(s))lines.push(r);}
-function newline(){if(cur.length)pushSegs(cur);cur=[];}
-function append(t,c){
-  const last=cur[cur.length-1];
-  if(last&&last.c===c)last.t+=t;else cur.push({t,c});
-}
-function backspace(){
-  while(cur.length){
-    const last=cur[cur.length-1];
-    last.t=last.t.slice(0,-1);
-    if(last.t.length)return;
-    cur.pop();
-  }
-}
-function reset(){lines.length=0;cur=[];}
+    <script>
+        (function() {
+            // ─── Konfigurasi ───
+            const BG_COLOR = 0x030510;
+            const CYAN = 0x00e5ff;
+            const CYAN_BRIGHT = 0x40f0ff;
+            const CYAN_SOFT = 0x40a8c8;
+            const WHITE_GLOW = 0xe0ffff;
+            const NODE_COUNT = 50;
+            const TOTAL_DURATION = 40;
 
-/* ═══════════════ prompt ═══════════════ */
-const pKali1=()=>seg(['┌──(','b'],['kali','c'],['㉿','r'],['kali','c'],[')-[','b'],['~','m'],[']','b']);
-const pKali2=()=>seg(['└─','b'],['$','b'],[' ','w']);
-const pRem=(u,root)=>seg([u+'@web-prod-01','gr'],[':','w'],['~','b'],[root?'# ':'$ ','w']);
+            // ─── Elemen DOM ───
+            const container = document.getElementById('canvas-container');
+            const progressFill = document.getElementById('progress-fill');
+            const statusText = document.getElementById('status-text');
+            const downloadBtn = document.getElementById('download-btn');
+            const loadingEl = document.getElementById('loading');
 
-/* ═══════════════ mesin aksi ═══════════════ */
-async function emit(items,d){for(const it of items){if(DEAD())return;pushSegs(it.s);await sleep(it.d??d??26);}}
-async function pause(ms){if(!DEAD())await sleep(ms);}
-async function typeText(text,opt){
-  opt=opt||{};
-  const min=opt.min??34,max=opt.max??78,color=opt.color||'w';
-  typing=true;
-  for(const ch of text){
-    if(DEAD()){typing=false;return;}
-    append(ch,color);
-    await sleep(rand(min,max)+(ch===' '?14:0)+((ch==='-'||ch==='.')?10:0));
-  }
-  typing=false;
-}
-async function maskInput(promptSegs,dur){
-  newline();cur=promptSegs.slice();
-  await pause(320);await sleep(dur||900);newline();
-}
-async function kali(p1,p2,cmd){
-  newline();
-  if(p1)pushSegs(p1);
-  cur=p2?p2.slice():[];
-  await pause(260);
-  await typeText(cmd);
-  await pause(rand(300,560));
-  newline();
-}
+            // ─── Renderer & Scene ───
+            const renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: false,
+                preserveDrawingBuffer: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setClearColor(BG_COLOR, 1);
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            container.appendChild(renderer.domElement);
 
-/* ═══════════════ SKENARIO AUTO-PLAY ═══════════════ */
-async function runScript(){
-  const id=state.runId;DEAD=()=>state.runId!==id;
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(BG_COLOR);
+            scene.fog = new THREE.FogExp2(BG_COLOR, 0.02);
 
-  /* ── boot singkat ── */
-  await emit([
-    L('[    0.000000] Linux version 6.12.20-kali1-amd64 (devel@kali.org) (gcc-14 (Debian 14.2.0-19) 14.2.0) #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2026-03-30)','g',6),
-    L('[    0.318224] ACPI: Enabled 4 GPEs in block 00 to 1F','g',6),
-    {s:seg(['[  OK  ]','gr'],[' Started Network Manager.','w']),d:10},
-    {s:seg(['[  OK  ]','gr'],[' Started D-Bus System Message Bus.','w']),d:10},
-    {s:seg(['[  OK  ]','gr'],[' Started OpenBSD Secure Shell server.','w']),d:10},
-    {s:seg(['[  OK  ]','gr'],[' Started Light Display Manager.','w']),d:10},
-    {s:seg(['[  OK  ]','gr'],[' Reached target Graphical Interface.','w']),d:14},
-  ],8);
-  await pause(220);
-  await emit([L('','w',60),L('Kali GNU/Linux Rolling kali tty1','w',90),L('','w',60)]);
+            const camera = new THREE.PerspectiveCamera(
+                55,
+                container.clientWidth / container.clientHeight,
+                0.1,
+                100
+            );
+            camera.position.set(0, 0, 12);
+            camera.lookAt(0, 0, 0);
 
-  /* ── login ── */
-  cur=seg(['kali login: ','w']);
-  await pause(480);await typeText('kali',{min:110,max:180});await pause(260);newline();
-  await maskInput(seg(['Password: ','w']),850);
-  await emit([
-    L('Linux kali 6.12.20-kali1-amd64 #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2026-03-30) x86_64','w',8),
-    L('','w',6),
-    L('The programs included with the Debian GNU/Linux system are free software;','g',5),
-    L('the exact distribution terms for each program are described in the','g',5),
-    L('individual files in /usr/share/doc/*/copyright.','g',5),
-    L('','w',6),
-    L('Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent','g',5),
-    L('permitted by applicable law.','g',5),
-    L('Last login: Tue Aug 25 02:41:17 2026 from 192.168.1.17','w',140),
-  ]);
+            // ─── Pencahayaan ───
+            const ambientLight = new THREE.AmbientLight(0x0a1a2a, 0.8);
+            scene.add(ambientLight);
 
-  /* ── briefing ── */
-  await kali(pKali1(),pKali2(),'cat ops/target.txt');
-  await emit([
-    L('================================================','b',8),
-    L(' ENGAGEMENT   : RED TEAM — Acme Corp (SOW-2026-0814)','w',8),
-    L(' TARGET       : 192.168.1.20 (WEB-PROD-01)','W',8),
-    L(' SCOPE        : web app, ssh, internal services','w',8),
-    L('================================================','b',10),
-    L('[x] recon      : nmap full service scan','gr',6),
-    L('[ ] enum web   : gobuster + robots.txt','w',6),
-    L('[ ] creds      : cek /backup (info recon awal)','w',6),
-    L('[ ] akses awal : ssh / kredensial service','w',6),
-    L('[ ] privesc    : sudo -l / GTFOBins','w',6),
-    L('[ ] bukti      : /home/admin/user.txt, /root/root.txt','w',6),
-    L(' CATATAN: jangan sentuh subnet lain. semua aktivitas di-log.','g',10),
-  ]);
-  await pause(520);
+            const pointLightCenter = new THREE.PointLight(CYAN_BRIGHT, 2.0, 30, 1.5);
+            pointLightCenter.position.set(0, 0, 0);
+            scene.add(pointLightCenter);
 
-  /* ── nmap ── */
-  await kali(pKali1(),pKali2(),'nmap -sS -sV -O 192.168.1.20');
-  await emit([
-    L('Starting Nmap 7.95SVN ( https://nmap.org ) at 2026-08-25 03:12 WIB','w',60),
-    L('Nmap scan report for web-prod-01.lan (192.168.1.20)','w',14),
-    L('Host is up (0.00041s latency).','w',10),
-    L('Not shown: 995 closed tcp ports (reset)','g',10),
-    L('PORT     STATE SERVICE     VERSION','W',16),
-    {s:seg(['21/tcp   open  ','w'],['ftp','gr'],['         vsftpd 3.0.3','w']),d:14},
-    {s:seg(['22/tcp   open  ','w'],['ssh','gr'],['         OpenSSH 8.9p1 Ubuntu 3ubuntu0.10','w']),d:14},
-    {s:seg(['80/tcp   open  ','w'],['http','gr'],['        Apache httpd 2.4.58 ((Ubuntu) PHP/8.1.27)','w']),d:14},
-    L('|_http-title: Acme Corp | Intranet Portal','g',8),
-    L('| http-robots.txt: 2 disallowed entries','g',8),
-    L('|_/admin /backup','y',16),
-    {s:seg(['445/tcp  open  ','w'],['netbios-ssn','gr'],[' Samba smbd 4.15.13-Ubuntu','w']),d:14},
-    {s:seg(['3306/tcp open  ','w'],['mysql','gr'],['       MySQL 8.0.36','w']),d:14},
-    L('MAC Address: 08:00:27:4A:1F:9C (Oracle VirtualBox virtual NIC)','g',10),
-    L('Device type: general purpose','w',6),
-    L('OS details: Linux 5.15 - 6.8','w',6),
-    L('Network Distance: 1 hop','w',8),
-    L('','w',6),
-    {s:seg(['Nmap done: 1 IP address (1 host up) scanned in ','w'],['13.37 seconds','y']),d:12},
-  ]);
-  await pause(460);
+            const pointLightSecondary = new THREE.PointLight(0x2080a0, 1.2, 20, 1.8);
+            pointLightSecondary.position.set(2, -1, 3);
+            scene.add(pointLightSecondary);
 
-  /* ── gobuster (dengan typo natural + koreksi) ── */
-  newline();pushSegs(pKali1());cur=pKali2();
-  await pause(280);
-  await typeText('gobustr',{min:60,max:110});
-  await pause(430);
-  for(let i=0;i<3;i++){if(DEAD())return;backspace();await sleep(70);}
-  await typeText('ster dir -u http://192.168.1.20 -w /usr/share/wordlists/dirb/common.txt');
-  await pause(380);newline();
-  await emit([
-    L('===============================================================','c',6),
-    L('Gobuster v3.6','W',6),
-    L('by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)','g',8),
-    L('===============================================================','c',6),
-    L('[+] Url:                     http://192.168.1.20','w',5),
-    L('[+] Wordlist:                /usr/share/wordlists/dirb/common.txt','w',5),
-    L('[+] Threads:                 10','w',5),
-    L('===============================================================','c',10),
-    {s:seg(['[03:14:22] ','g'],['200','gr'],['     4211B  /index.php','w']),d:22},
-    {s:seg(['[03:14:23] ','g'],['301','y'],['        0B  /admin  ->  http://192.168.1.20/admin/','w']),d:22},
-    {s:seg(['[03:14:27] ','g'],['200','gr'],['     1143B  ','w'],['/backup','W']),d:26},
-    {s:seg(['[03:14:29] ','g'],['403','r'],['      278B  /server-status','w']),d:22},
-    L('===============================================================','c',6),
-    L('Finished','w',8),
-  ]);
-  await pause(430);
+            const dirLight = new THREE.DirectionalLight(0x40c0e0, 0.5);
+            dirLight.position.set(5, 8, 4);
+            scene.add(dirLight);
 
-  /* ── kredensial bocor ── */
-  await kali(pKali1(),pKali2(),'curl -s http://192.168.1.20/backup/.env');
-  await emit([
-    L('APP_NAME="Acme Intranet"','w',8),
-    L('APP_ENV=production','w',8),
-    L('APP_KEY=base64:8sJ2mQpZ1xLm9tR4vYw7bNcE5dHfK3aT0uIq9dWz','w',8),
-    L('APP_DEBUG=true','w',8),
-    L('DB_HOST=127.0.0.1','w',8),
-    L('DB_DATABASE=intranet','w',8),
-    L('DB_USERNAME=app_user','w',8),
-    L('DB_PASSWORD=Zk9!mQ2vLrTx7w','w',8),
-    L("# TODO (sysadmin): ganti password SSH akun 'admin' setelah audit Q3",'y',10),
-    L('# sementara pakai: Winter#2026!','y',30),
-  ]);
-  await pause(540);
+            // ─── Helper: Buat tekstur cahaya ───
+            function createGlowTexture(size, innerColor, outerColor) {
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = size;
+                const ctx = canvas.getContext('2d');
+                const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+                gradient.addColorStop(0, innerColor);
+                gradient.addColorStop(0.4, innerColor);
+                gradient.addColorStop(1, outerColor);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, size, size);
+                const tex = new THREE.CanvasTexture(canvas);
+                return tex;
+            }
 
-  /* ── hydra ── */
-  await kali(pKali1(),pKali2(),'hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://192.168.1.20 -t 4');
-  await emit([
-    L('Hydra v9.5 (c) 2023 by van Hauser/THC & David Maciejak','g',10),
-    L('','w',6),
-    L('Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2026-08-25 03:14:31','w',14),
-    L('[WARNING] Many SSH configurations/settings do not support parallel connections. It is recommended to reduce parallel connections to 1 (-t 1).','y',16),
-    L('[DATA] max 4 tasks per 1 server, overall 4 tasks, 14344399 login tries (l:1/p:14344399), ~3586100 tries per task','w',12),
-    L('[DATA] attacking ssh://192.168.1.20:22/','w',70),
-  ]);
-  const wl=['123456','password','admin123','letmein','qwerty123','dragon'];
-  for(let i=0;i<wl.length;i++){
-    if(DEAD())return;
-    pushSegs(seg(['[ATTEMPT] target 192.168.1.20 - login "admin" - pass "'+wl[i]+'" - '+(i+1)+' of 14344399 [child '+(i%4)+'] (0/0)','g']));
-    await sleep(rand(150,240));
-  }
-  await pause(520);
-  await emit([
-    {s:seg(['[22][ssh] host: ','w'],['192.168.1.20','W'],['   login: ','w'],['admin','W'],['   password: ','w'],['Winter#2026!','gr']),d:70},
-    {s:seg(['1 of 1 target successfully completed, ','w'],['1 valid password found','gr']),d:16},
-    L('Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2026-08-25 03:15:04','g',14),
-  ]);
-  await pause(560);
+            // ─── Helper: Buat teks pada canvas ───
+            function createTextSpriteCanvas(text, opts = {}) {
+                const {
+                    fontSize = 80,
+                        fontFamily = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+                        color = '#ffffff',
+                        glowColor = '#00e5ff',
+                        glowBlur = 30,
+                        letterSpacing = 6,
+                        lineHeight = 1.6,
+                        padding = 60,
+                        maxWidth = 1200
+                } = opts;
 
-  /* ── ssh foothold ── */
-  await kali(pKali1(),pKali2(),'ssh admin@192.168.1.20');
-  await maskInput(seg(["admin@192.168.1.20's password: ",'w']),900);
-  await emit([
-    L('Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-105-generic x86_64)','w',10),
-    L('','w',6),
-    L(' * Documentation:  https://help.ubuntu.com','g',5),
-    L(' * Management:     https://landscape.canonical.com','g',5),
-    L(' * Support:        https://ubuntu.com/advantage','g',5),
-    L('','w',6),
-    L('Last login: Mon Aug 24 22:51:08 2026 from 192.168.1.17','w',16),
-  ]);
+                const lines = text.split('\n');
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.font = `600 ${fontSize}px ${fontFamily}`;
+                let maxLineWidth = 0;
+                for (const line of lines) {
+                    const w = ctx.measureText(line).width + (line.length - 1) * letterSpacing;
+                    if (w > maxLineWidth) maxLineWidth = w;
+                }
+                const totalWidth = Math.min(maxLineWidth + padding * 2, maxWidth);
+                const lineHeightPx = fontSize * lineHeight;
+                const totalHeight = lines.length * lineHeightPx + padding * 2;
+                canvas.width = Math.ceil(totalWidth);
+                canvas.height = Math.ceil(totalHeight);
 
-  /* ── shell remote: enumerasi ── */
-  await kali(pRem('admin',false),null,'whoami');
-  await emit([L('admin','w',34)]);
-  await kali(pRem('admin',false),null,'sudo -l');
-  await emit([
-    L('Matching Defaults entries for admin on web-prod-01:','w',8),
-    L('    env_reset, mail_badpass, secure_path=/usr/local/sbin\\:/usr/local/bin\\:/usr/sbin\\:/usr/bin\\:/sbin\\:/bin\\:/snap/bin','g',8),
-    L('','w',6),
-    L('User admin may run the following commands on web-prod-01:','w',10),
-    L('    (root) NOPASSWD: /usr/bin/vim /etc/nginx/nginx.conf','y',34),
-  ]);
-  await pause(540);
+                const c2 = canvas.getContext('2d');
+                c2.clearRect(0, 0, canvas.width, canvas.height);
+                c2.font = `600 ${fontSize}px ${fontFamily}`;
+                c2.textAlign = 'center';
+                c2.textBaseline = 'middle';
+                c2.letterSpacing = `${letterSpacing}px`;
+                const centerX = canvas.width / 2;
+                for (let i = 0; i < lines.length; i++) {
+                    const y = padding + i * lineHeightPx + lineHeightPx / 2;
+                    c2.shadowColor = glowColor;
+                    c2.shadowBlur = glowBlur;
+                    c2.fillStyle = color;
+                    c2.fillText(lines[i], centerX, y);
+                    c2.shadowBlur = glowBlur * 1.5;
+                    c2.fillText(lines[i], centerX, y);
+                }
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.minFilter = THREE.LinearFilter;
+                tex.magFilter = THREE.LinearFilter;
+                return { texture: tex, aspect: canvas.width / canvas.height };
+            }
 
-  /* ── privilege escalation ── */
-  await kali(pRem('admin',false),null,"sudo vim -c ':!/bin/sh' /etc/nginx/nginx.conf");
-  await pause(520);
-  await kali(pRem('root',true),null,'id');
-  await emit([{s:seg(['uid=0(root) gid=0(root) groups=0(root)','gr']),d:44}]);
-  await pause(400);
+            // ─── Helper: Buat logo 'A' ───
+            function createLogoSpriteCanvas(letter = 'A', opts = {}) {
+                const {
+                    fontSize = 380,
+                        fontFamily = "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
+                        color = '#ffffff',
+                        glowColor = '#00e5ff',
+                        glowBlur = 50
+                } = opts;
 
-  /* ── objective ── */
-  await kali(pRem('root',true),null,'cat /root/root.txt');
-  await emit([
-    L('Congrats, operator — root obtained.','w',28),
-    L('','w',12),
-    {s:seg(['FLAG{r00t_0n_w3b-pr0d-01__25-08-2026}','gr']),d:120},
-  ]);
-  await pause(900);
+                const canvas = document.createElement('canvas');
+                canvas.width = canvas.height = 700;
+                const c2 = canvas.getContext('2d');
+                c2.clearRect(0, 0, canvas.width, canvas.height);
+                const centerX = canvas.width / 2;
+                const centerY = canvas.height / 2;
+                const size = fontSize;
+                const halfSize = size / 2;
+                c2.shadowColor = glowColor;
+                c2.shadowBlur = glowBlur;
+                c2.strokeStyle = color;
+                c2.lineWidth = 8;
+                c2.lineCap = 'round';
+                c2.lineJoin = 'round';
+                const topY = centerY - halfSize * 0.75;
+                const bottomY = centerY + halfSize * 0.8;
+                const leftX = centerX - halfSize * 0.65;
+                const rightX = centerX + halfSize * 0.65;
+                c2.beginPath();
+                c2.moveTo(leftX, bottomY);
+                c2.lineTo(centerX, topY);
+                c2.lineTo(rightX, bottomY);
+                c2.stroke();
+                c2.beginPath();
+                c2.moveTo(leftX + halfSize * 0.4, centerY + halfSize * 0.25);
+                c2.lineTo(rightX - halfSize * 0.4, centerY + halfSize * 0.25);
+                c2.stroke();
+                c2.shadowBlur = glowBlur * 2;
+                c2.beginPath();
+                c2.moveTo(leftX, bottomY);
+                c2.lineTo(centerX, topY);
+                c2.lineTo(rightX, bottomY);
+                c2.stroke();
+                c2.beginPath();
+                c2.moveTo(leftX + halfSize * 0.4, centerY + halfSize * 0.25);
+                c2.lineTo(rightX - halfSize * 0.4, centerY + halfSize * 0.25);
+                c2.stroke();
+                const tex = new THREE.CanvasTexture(canvas);
+                tex.minFilter = THREE.LinearFilter;
+                tex.magFilter = THREE.LinearFilter;
+                return { texture: tex, aspect: 1 };
+            }
 
-  /* ── cleanup & logout ── */
-  await kali(pRem('root',true),null,'exit');
-  await kali(pRem('admin',false),null,'exit');
-  await emit([L('Connection to 192.168.1.20 closed.','g',22)]);
-  newline();pushSegs(pKali1());cur=pKali2();
-  await pause(2400);
-}
+            // ─── Fase 1: Partikel Tunggal ───
+            const singleParticleGeo = new THREE.SphereGeometry(0.2, 32, 32);
+            const singleParticleMat = new THREE.MeshBasicMaterial({ color: WHITE_GLOW });
+            const singleParticle = new THREE.Mesh(singleParticleGeo, singleParticleMat);
+            singleParticle.visible = true;
+            scene.add(singleParticle);
 
-/* ═══════════════ render loop ═══════════════ */
-function draw(now){
-  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
-  ctx.textBaseline='top';ctx.font='400 '+FONT+'px "JetBrains Mono", monospace';
-  const curVis=wrap(cur);
-  const total=lines.length+curVis.length;
-  const start=Math.max(0,total-ROWS);
-  const drawRow=(row,y)=>{
-    let x=PADX;
-    for(const s of row){
-      ctx.fillStyle=CLR[s.c]||CLR.w;
-      ctx.fillText(s.t,x,y+6);
-      x+=ctx.measureText(s.t).width;
-    }
-  };
-  let vi=0;
-  for(let i=start;i<lines.length;i++,vi++)drawRow(lines[i],PADT+vi*LH);
-  for(let j=0;j<curVis.length;j++,vi++)drawRow(curVis[j],PADT+vi*LH);
-  const blink=typing||Math.floor(now/530)%2===0;
-  if(blink){
-    const lastRow=curVis[curVis.length-1]||[];
-    let wpx=0;for(const s of lastRow)wpx+=ctx.measureText(s.t).width;
-    const y=PADT+(vi-1)*LH;
-    ctx.fillStyle='#dcdcdc';
-    ctx.fillRect(PADX+wpx,y+5,charW-2,LH-9);
-  }
-  requestAnimationFrame(draw);
-}
+            const particleGlowTexture = createGlowTexture(256, '#ffffff', 'rgba(0,180,255,0)');
+            const particleGlowMat = new THREE.SpriteMaterial({
+                map: particleGlowTexture,
+                color: 0x00ccff,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                transparent: true,
+                opacity: 0.9
+            });
+            const particleGlowSprite = new THREE.Sprite(particleGlowMat);
+            particleGlowSprite.scale.set(3.0, 3.0, 1);
+            particleGlowSprite.visible = true;
+            scene.add(particleGlowSprite);
 
-/* ═══════════════ perekaman WebM ═══════════════ */
-const btnRec=document.getElementById('btnRec'),
-      btnStop=document.getElementById('btnStop'),
-      statusEl=document.getElementById('status');
-let rec=null,chunks=[],recTimer=null,recStart=0;
+            // ─── Fase 2: Jaringan Neural ───
+            const nodeGroup = new THREE.Group();
+            nodeGroup.visible = false;
+            scene.add(nodeGroup);
 
-function pickMime(){
-  const c=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
-  for(const m of c)if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m))return m;
-  return null;
-}
-function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0');}
-const setStatus=h=>{statusEl.innerHTML=h;};
+            const nodeGeometry = new THREE.SphereGeometry(0.08, 10, 10);
+            const nodeMaterial = new THREE.MeshBasicMaterial({ color: CYAN_BRIGHT });
+            const nodeInstancedMesh = new THREE.InstancedMesh(nodeGeometry, nodeMaterial, NODE_COUNT);
+            nodeInstancedMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+            nodeGroup.add(nodeInstancedMesh);
 
-async function playScript(){state.runId++;reset();await runScript();}
-async function previewLoop(){
-  for(;;){
-    if(state.recording)return;
-    await playScript();
-    if(state.recording)return;
-    await sleep(2600);
-  }
-}
-btnRec.addEventListener('click',async()=>{
-  if(state.recording)return;
-  const mime=pickMime();
-  const cap=cv.captureStream||cv.mozCaptureStream||cv.webkitCaptureStream;
-  if(!mime||!cap){setStatus('❌ Browser tidak mendukung MediaRecorder/captureStream. Gunakan Chrome/Edge/Firefox.');return;}
-  state.runId++;                 // batalkan preview berjalan
-  state.recording=true;
-  reset();
-  btnRec.disabled=true;btnStop.disabled=false;
-  chunks=[];
-  const stream=cap.call(cv,30);
-  rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:9000000});
-  rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
-  rec.onstop=()=>{
-    clearInterval(recTimer);
-    const blob=new Blob(chunks,{type:mime});
-    const ext=mime.indexOf('mp4')>=0?'mp4':'webm';
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download='kali-linux-hacking-1080x1920.'+ext;
-    document.body.appendChild(a);a.click();a.remove();
-    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-    setStatus('✅ Selesai — file .'+ext+' ('+(blob.size/1048576).toFixed(1)+' MB) sedang diunduh');
-    state.recording=false;btnRec.disabled=false;btnStop.disabled=true;
-    previewLoop();
-  };
-  rec.start(250);
-  recStart=Date.now();
-  setStatus('<b>● REC</b> 00:00 — merekam…');
-  recTimer=setInterval(()=>setStatus('<b>● REC</b> '+fmt((Date.now()-recStart)/1000)+' — merekam…'),400);
-  await sleep(350);
-  await runScript();
-  if(state.recording&&rec&&rec.state==='recording'){
-    await sleep(1400);
-    if(state.recording&&rec&&rec.state==='recording')rec.stop();
-  }
-});
-btnStop.addEventListener('click',()=>{
-  if(state.recording&&rec&&rec.state==='recording'){state.runId++;rec.stop();}
-});
+            const nodeGlowTexture = createGlowTexture(64, '#ffffff', 'rgba(0,200,255,0)');
+            const nodeGlowMaterial = new THREE.SpriteMaterial({
+                map: nodeGlowTexture,
+                color: 0x00ccff,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                transparent: true,
+                opacity: 0.6
+            });
+            const nodeGlowSprites = [];
+            for (let i = 0; i < NODE_COUNT; i++) {
+                const sprite = new THREE.Sprite(nodeGlowMaterial.clone());
+                sprite.scale.set(0.7, 0.7, 1);
+                sprite.visible = false;
+                nodeGroup.add(sprite);
+                nodeGlowSprites.push(sprite);
+            }
 
-/* ═══════════════ init ═══════════════ */
-(async()=>{
-  try{
-    await Promise.all([
-      document.fonts.load('400 '+FONT+'px "JetBrains Mono"'),
-      document.fonts.load('700 '+FONT+'px "JetBrains Mono"')
-    ]);
-  }catch(_){/* fallback monospace */}
-  ctx.font='400 '+FONT+'px "JetBrains Mono", monospace';
-  charW=ctx.measureText('M').width||FONT*0.6;
-  COLS=Math.floor((W-PADX*2)/charW);
-  ROWS=Math.floor((H-PADT-44)/LH);
-  requestAnimationFrame(draw);
-  setStatus('Preview berjalan — siap direkam (1080×1920 • 30fps)');
-  previewLoop();
-})();
-</script>
+            // Posisi jaringan acak
+            const nodeNetworkPositions = [];
+            const nodeSpherePositions = [];
+            const nodeCurrentPositions = [];
+            const sphereRadius = 2.6;
+
+            for (let i = 0; i < NODE_COUNT; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = 2.2 + Math.random() * 3.2;
+                const x = r * Math.sin(phi) * Math.cos(theta);
+                const y = r * Math.sin(phi) * Math.sin(theta) * 0.75;
+                const z = r * Math.cos(phi);
+                nodeNetworkPositions.push(new THREE.Vector3(x, y, z));
+                nodeCurrentPositions.push(new THREE.Vector3(x, y, z));
+            }
+
+            const goldenRatio = (1 + Math.sqrt(5)) / 2;
+            for (let i = 0; i < NODE_COUNT; i++) {
+                const theta = 2 * Math.PI * i / goldenRatio;
+                const phi = Math.acos(1 - 2 * (i + 0.5) / NODE_COUNT);
+                const x = sphereRadius * Math.sin(phi) * Math.cos(theta);
+                const y = sphereRadius * Math.sin(phi) * Math.sin(theta) * 0.85;
+                const z = sphereRadius * Math.cos(phi);
+                nodeSpherePositions.push(new THREE.Vector3(x, y, z));
+            }
+
+            // Simpan posisi asli untuk reset
+            const originalNetworkPositions = nodeNetworkPositions.map(p => p.clone());
+
+            // Garis penghubung
+            const edgePairs = [];
+            const edgePositions = [];
+            const EDGE_THRESHOLD = 3.5;
+            for (let i = 0; i < NODE_COUNT; i++) {
+                for (let j = i + 1; j < NODE_COUNT; j++) {
+                    const p1 = nodeNetworkPositions[i];
+                    const p2 = nodeNetworkPositions[j];
+                    if (p1.distanceTo(p2) < EDGE_THRESHOLD) {
+                        edgePairs.push([i, j]);
+                        edgePositions.push(p1.x, p1.y, p1.z, p2.x, p2.y, p2.z);
+                    }
+                }
+            }
+
+            const edgeGeometry = new THREE.BufferGeometry();
+            edgeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(edgePositions, 3));
+            const edgeMaterial = new THREE.LineBasicMaterial({
+                color: CYAN,
+                transparent: true,
+                opacity: 0.35,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const edgeLines = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+            edgeLines.visible = false;
+            nodeGroup.add(edgeLines);
+
+            // ─── Fase 3: Bola Kaca ───
+            const glassSphereGeo = new THREE.SphereGeometry(sphereRadius, 64, 64);
+            const glassSphereMat = new THREE.MeshPhongMaterial({
+                color: 0x88ccdd,
+                transparent: true,
+                opacity: 0.2,
+                shininess: 60,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const glassSphere = new THREE.Mesh(glassSphereGeo, glassSphereMat);
+            glassSphere.visible = false;
+            glassSphere.scale.set(0.001, 0.001, 0.001);
+            scene.add(glassSphere);
+
+            const innerGlowGeo = new THREE.SphereGeometry(sphereRadius * 0.9, 32, 32);
+            const innerGlowMat = new THREE.MeshBasicMaterial({
+                color: 0x003040,
+                transparent: true,
+                opacity: 0.2,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const innerGlowSphere = new THREE.Mesh(innerGlowGeo, innerGlowMat);
+            innerGlowSphere.visible = false;
+            innerGlowSphere.scale.set(0.001, 0.001, 0.001);
+            scene.add(innerGlowSphere);
+
+            const wireframeGeo = new THREE.SphereGeometry(sphereRadius * 1.01, 24, 18);
+            const wireframeMat = new THREE.MeshBasicMaterial({
+                color: CYAN_SOFT,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.12,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const wireframeSphere = new THREE.Mesh(wireframeGeo, wireframeMat);
+            wireframeSphere.visible = false;
+            wireframeSphere.scale.set(0.001, 0.001, 0.001);
+            scene.add(wireframeSphere);
+
+            // ─── Fase 4: Teks di Ruang 3D ───
+            const textSpriteGroup = new THREE.Group();
+            textSpriteGroup.visible = false;
+            scene.add(textSpriteGroup);
+
+            const ecosystemTextData = createTextSpriteCanvas('AI. Software.\nEcosystem.', {
+                fontSize: 80,
+                glowBlur: 30,
+                letterSpacing: 8,
+                lineHeight: 1.8,
+                padding: 50,
+                maxWidth: 900
+            });
+            const ecosystemTextMat = new THREE.SpriteMaterial({
+                map: ecosystemTextData.texture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                opacity: 0
+            });
+            const ecosystemTextSprite = new THREE.Sprite(ecosystemTextMat);
+            const textScale = 6.0;
+            ecosystemTextSprite.scale.set(textScale, textScale / ecosystemTextData.aspect, 1);
+            ecosystemTextSprite.position.set(0, 0.6, 0.5);
+            textSpriteGroup.add(ecosystemTextSprite);
+
+            const textParticlesGeo = new THREE.BufferGeometry();
+            const textParticleCount = 30;
+            const textParticlePositions = new Float32Array(textParticleCount * 3);
+            for (let i = 0; i < textParticleCount; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = 1.5 + Math.random() * 2.5;
+                textParticlePositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                textParticlePositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.6;
+                textParticlePositions[i * 3 + 2] = r * Math.cos(phi);
+            }
+            textParticlesGeo.setAttribute('position', new THREE.BufferAttribute(textParticlePositions, 3));
+            const textParticlesMat = new THREE.PointsMaterial({
+                color: CYAN_BRIGHT,
+                size: 0.04,
+                transparent: true,
+                opacity: 0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const textParticles = new THREE.Points(textParticlesGeo, textParticlesMat);
+            textParticles.visible = false;
+            textSpriteGroup.add(textParticles);
+
+            // ─── Fase 5: Logo 'A' dan Nama Perusahaan ───
+            const logoGroup = new THREE.Group();
+            logoGroup.visible = false;
+            scene.add(logoGroup);
+
+            const logoAData = createLogoSpriteCanvas('A', { fontSize: 380, glowBlur: 45 });
+            const logoAMat = new THREE.SpriteMaterial({
+                map: logoAData.texture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                opacity: 0
+            });
+            const logoASprite = new THREE.Sprite(logoAMat);
+            const logoScale = 4.5;
+            logoASprite.scale.set(logoScale, logoScale, 1);
+            logoASprite.position.set(0, 0.8, 0);
+            logoGroup.add(logoASprite);
+
+            const companyTextData = createTextSpriteCanvas('AXION NEURALIS', {
+                fontSize: 64,
+                glowBlur: 28,
+                letterSpacing: 14,
+                padding: 35,
+                maxWidth: 800
+            });
+            const companyTextMat = new THREE.SpriteMaterial({
+                map: companyTextData.texture,
+                transparent: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                opacity: 0
+            });
+            const companyTextSprite = new THREE.Sprite(companyTextMat);
+            const companyScale = 4.0;
+            companyTextSprite.scale.set(companyScale, companyScale / companyTextData.aspect, 1);
+            companyTextSprite.position.set(0, -1.6, 0);
+            logoGroup.add(companyTextSprite);
+
+            const logoParticlesGeo = new THREE.BufferGeometry();
+            const logoParticleCount = 50;
+            const logoParticlePositions = new Float32Array(logoParticleCount * 3);
+            for (let i = 0; i < logoParticleCount; i++) {
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+                const r = 1.0 + Math.random() * 3.5;
+                logoParticlePositions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+                logoParticlePositions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.7 + 0.3;
+                logoParticlePositions[i * 3 + 2] = r * Math.cos(phi);
+            }
+            logoParticlesGeo.setAttribute('position', new THREE.BufferAttribute(logoParticlePositions, 3));
+            const logoParticlesMat = new THREE.PointsMaterial({
+                color: CYAN_BRIGHT,
+                size: 0.045,
+                transparent: true,
+                opacity: 0,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            const logoParticles = new THREE.Points(logoParticlesGeo, logoParticlesMat);
+            logoParticles.visible = false;
+            logoGroup.add(logoParticles);
+
+            // ─── Variabel state ───
+            let nodeInterpolationProgress = 0;
+            let networkRotation = 0;
+            let networkGroupRotationSpeed = 0.4;
+            let globalTime = 0;
+            let isRecording = false;
+            let mediaRecorder = null;
+            let recordedChunks = [];
+
+            // ─── Perbarui posisi node dan garis ───
+            function updateNodeInstances() {
+                const dummy = new THREE.Object3D();
+                for (let i = 0; i < NODE_COUNT; i++) {
+                    const start = nodeNetworkPositions[i];
+                    const end = nodeSpherePositions[i];
+                    const current = nodeCurrentPositions[i];
+                    current.lerpVectors(start, end, nodeInterpolationProgress);
+                    dummy.position.copy(current);
+                    dummy.updateMatrix();
+                    nodeInstancedMesh.setMatrixAt(i, dummy.matrix);
+                    if (nodeGlowSprites[i]) {
+                        nodeGlowSprites[i].position.copy(current);
+                        nodeGlowSprites[i].visible = nodeGroup.visible && nodeInterpolationProgress < 0.95;
+                    }
+                }
+                nodeInstancedMesh.instanceMatrix.needsUpdate = true;
+
+                const edgePosArray = edgeGeometry.attributes.position.array;
+                for (let e = 0; e < edgePairs.length; e++) {
+                    const [i, j] = edgePairs[e];
+                    const pi = nodeCurrentPositions[i];
+                    const pj = nodeCurrentPositions[j];
+                    const idx = e * 6;
+                    edgePosArray[idx] = pi.x;
+                    edgePosArray[idx + 1] = pi.y;
+                    edgePosArray[idx + 2] = pi.z;
+                    edgePosArray[idx + 3] = pj.x;
+                    edgePosArray[idx + 4] = pj.y;
+                    edgePosArray[idx + 5] = pj.z;
+                }
+                edgeGeometry.attributes.position.needsUpdate = true;
+                edgeGeometry.computeBoundingSphere();
+            }
+
+            // ─── Bangun timeline GSAP ───
+            const masterTimeline = gsap.timeline({ paused: false });
+
+            // Fase 1: 0-5 detik
+            masterTimeline.set(singleParticle, { visible: true, scale: 0.1 }, 0);
+            masterTimeline.set(particleGlowSprite, { visible: true, opacity: 0.9 }, 0);
+            masterTimeline.to(singleParticle.scale, { x: 1.6, y: 1.6, z: 1.6, duration: 2.8, ease: 'power2.out' }, 0);
+            masterTimeline.to(particleGlowSprite.scale, { x: 5.0, y: 5.0, duration: 2.8, ease: 'power2.out' }, 0);
+            masterTimeline.to(pointLightCenter, { intensity: 3.5, duration: 2.5, ease: 'sine.inOut' }, 0);
+            masterTimeline.to(singleParticle.scale, {
+                x: 1.9, y: 1.9, z: 1.9, duration: 0.5, yoyo: true, repeat: 3, ease: 'sine.inOut'
+            }, 2.5);
+
+            // Fase 2: 5-15 detik
+            masterTimeline.addLabel('network', 5);
+            masterTimeline.to(singleParticle, { visible: false, duration: 0.01 }, 5);
+            masterTimeline.to(singleParticle.scale, { x: 0.05, y: 0.05, z: 0.05, duration: 1.5, ease: 'power2.in' }, 5);
+            masterTimeline.to(particleGlowSprite, {
+                opacity: 0, duration: 1.2, ease: 'power2.in',
+                onComplete: () => { particleGlowSprite.visible = false; }
+            }, 5);
+            masterTimeline.to(particleGlowSprite.scale, { x: 1.2, y: 1.2, duration: 1.2, ease: 'power2.in' }, 5);
+
+            masterTimeline.set(nodeGroup, { visible: true }, 5.2);
+            masterTimeline.set(edgeLines, { visible: true }, 5.2);
+            masterTimeline.fromTo(nodeInstancedMesh, { scale: 0.001 }, { scale: 1, duration: 2.5, ease: 'elastic.out(1, 0.6)' },
+                5.2);
+
+            // Sebarkan node dari pusat
+            const spreadProxy = { progress: 0 };
+            masterTimeline.to(spreadProxy, {
+                progress: 1,
+                duration: 4.5,
+                ease: 'power2.out',
+                onUpdate: () => {
+                    for (let i = 0; i < NODE_COUNT; i++) {
+                        nodeNetworkPositions[i].lerpVectors(
+                            new THREE.Vector3(0, 0, 0),
+                            originalNetworkPositions[i],
+                            spreadProxy.progress
+                        );
+                    }
+                    updateNodeInstances();
+                },
+            }, 5.5);
+
+            masterTimeline.fromTo(edgeMaterial, { opacity: 0 }, { opacity: 0.35, duration: 2.0, ease: 'sine.inOut' },
+            6.5);
+            masterTimeline.to(nodeGlowMaterial, { opacity: 0.6, duration: 1.5, ease: 'sine.inOut' }, 6.5);
+            masterTimeline.to(camera.position, {
+                z: 7.5, duration: 8.5, ease: 'power2.inOut',
+                onUpdate: () => camera.lookAt(0, 0, 0)
+            }, 5.5);
+            masterTimeline.to(camera.position, {
+                y: 0.5, duration: 8.5, ease: 'sine.inOut',
+                onUpdate: () => camera.lookAt(0, 0, 0)
+            }, 5.5);
+
+            // Fase 3: 15-25 detik
+            masterTimeline.addLabel('sphere', 15);
+            const sphereProxy = { progress: 0 };
+            masterTimeline.to(sphereProxy, {
+                progress: 1,
+                duration: 5.5,
+                ease: 'power2.inOut',
+                onUpdate: () => {
+                    nodeInterpolationProgress = sphereProxy.progress;
+                    updateNodeInstances();
+                },
+            }, 15);
+            masterTimeline.to(edgeMaterial, { opacity: 0.08, duration: 3.0, ease: 'sine.inOut' }, 16);
+
+            masterTimeline.set(glassSphere, { visible: true }, 16.5);
+            masterTimeline.to(glassSphere.scale, { x: 1, y: 1, z: 1, duration: 3.5, ease: 'power2.out' }, 16.5);
+            masterTimeline.set(innerGlowSphere, { visible: true }, 16.8);
+            masterTimeline.to(innerGlowSphere.scale, { x: 1, y: 1, z: 1, duration: 3.2, ease: 'power2.out' }, 16.8);
+            masterTimeline.set(wireframeSphere, { visible: true }, 17.0);
+            masterTimeline.to(wireframeSphere.scale, { x: 1, y: 1, z: 1, duration: 3.0, ease: 'power2.out' }, 17.0);
+            masterTimeline.to(glassSphere.rotation, { y: Math.PI * 2, duration: 8, ease: 'none' }, 16.5);
+            masterTimeline.to(wireframeSphere.rotation, { y: Math.PI * 2.5, duration: 8, ease: 'none' }, 17);
+            masterTimeline.to(camera.position, {
+                z: 8.5, duration: 4, ease: 'power2.inOut',
+                onUpdate: () => camera.lookAt(0, 0, 0)
+            }, 17);
+
+            // Fase 4: 25-35 detik
+            masterTimeline.addLabel('text', 25);
+            masterTimeline.to(glassSphere.scale, { x: 1.15, y: 1.15, z: 1.15, duration: 2.5, ease: 'power2.out' }, 25);
+            masterTimeline.to(glassSphereMat, { opacity: 0.12, duration: 2.5, ease: 'sine.inOut' }, 25);
+            masterTimeline.to(wireframeSphere.scale, { x: 1.25, y: 1.25, z: 1.25, duration: 2.5, ease: 'power2.out' },
+                25);
+            masterTimeline.to(wireframeMat, { opacity: 0.25, duration: 2.0, ease: 'sine.inOut' }, 25.5);
+
+            masterTimeline.set(textSpriteGroup, { visible: true }, 26.5);
+            masterTimeline.set(textParticles, { visible: true }, 26.5);
+            masterTimeline.to(ecosystemTextMat, { opacity: 1, duration: 2.0, ease: 'power2.out' }, 26.5);
+            masterTimeline.fromTo(ecosystemTextSprite.scale, {
+                x: textScale * 0.5, y: (textScale / ecosystemTextData.aspect) * 0.5
+            }, {
+                x: textScale, y: textScale / ecosystemTextData.aspect, duration: 2.2, ease: 'elastic.out(1, 0.5)'
+            }, 26.5);
+            masterTimeline.to(textParticlesMat, { opacity: 0.7, duration: 1.8, ease: 'sine.inOut' }, 27);
+            masterTimeline.to(textParticles.rotation, { y: Math.PI * 0.6, duration: 8, ease: 'none' }, 26.5);
+            masterTimeline.to(textParticles.rotation, { x: Math.PI * 0.2, duration: 8, ease: 'none' }, 26.5);
+            masterTimeline.to(camera.position, {
+                z: 9.0, duration: 3, ease: 'power2.inOut',
+                onUpdate: () => camera.lookAt(0, 0.2, 0)
+            }, 26);
+            masterTimeline.to(wireframeMat, { opacity: 0.08, duration: 2.5, ease: 'sine.inOut' }, 28);
+
+            // Fase 5: 35-40 detik
+            masterTimeline.addLabel('logo', 35);
+            masterTimeline.to(ecosystemTextMat, { opacity: 0, duration: 1.5, ease: 'power2.in' }, 35);
+            masterTimeline.to(textParticlesMat, { opacity: 0, duration: 1.5, ease: 'power2.in' }, 35);
+            masterTimeline.to(glassSphereMat, { opacity: 0.05, duration: 2.0, ease: 'sine.inOut' }, 35);
+            masterTimeline.to(wireframeMat, { opacity: 0.03, duration: 2.0, ease: 'sine.inOut' }, 35);
+            masterTimeline.set(textSpriteGroup, { visible: false }, 37);
+            masterTimeline.set(textParticles, { visible: false }, 37);
+
+            const finalProxy = { progress: 0 };
+            masterTimeline.to(finalProxy, {
+                progress: 1,
+                duration: 3.5,
+                ease: 'power2.inOut',
+                onUpdate: () => {
+                    const p = finalProxy.progress;
+                    for (let i = 0; i < NODE_COUNT; i++) {
+                        nodeCurrentPositions[i].multiplyScalar(1 - p * 0.75);
+                    }
+                    updateNodeInstances();
+                },
+            }, 35.5);
+
+            masterTimeline.to(glassSphere.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 2.5, ease: 'power2.in' },
+                36);
+            masterTimeline.to(innerGlowSphere.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 2.5, ease: 'power2.in' },
+                36);
+            masterTimeline.to(wireframeSphere.scale, { x: 0.001, y: 0.001, z: 0.001, duration: 2.5, ease: 'power2.in' },
+                36);
+            masterTimeline.set(glassSphere, { visible: false }, 38.5);
+            masterTimeline.set(innerGlowSphere, { visible: false }, 38.5);
+            masterTimeline.set(wireframeSphere, { visible: false }, 38.5);
+
+            masterTimeline.set(logoGroup, { visible: true }, 37.5);
+            masterTimeline.set(logoParticles, { visible: true }, 37.5);
+            masterTimeline.to(logoAMat, { opacity: 1, duration: 1.8, ease: 'power2.out' }, 37.5);
+            masterTimeline.fromTo(logoASprite.scale, { x: logoScale * 0.3, y: logoScale * 0.3 }, {
+                x: logoScale, y: logoScale, duration: 2.0, ease: 'elastic.out(1, 0.45)'
+            }, 37.5);
+            masterTimeline.to(companyTextMat, { opacity: 1, duration: 1.5, ease: 'power2.out' }, 38);
+            masterTimeline.fromTo(companyTextSprite.scale, {
+                x: companyScale * 0.4, y: (companyScale / companyTextData.aspect) * 0.4
+            }, {
+                x: companyScale, y: companyScale / companyTextData.aspect, duration: 1.8, ease: 'power2.out'
+            }, 38);
+            masterTimeline.to(logoParticlesMat, { opacity: 0.5, duration: 1.5, ease: 'sine.inOut' }, 38);
+            masterTimeline.to(logoParticles.rotation, { y: Math.PI * 1.2, duration: 3, ease: 'none' }, 37.5);
+            masterTimeline.to(camera.position, {
+                z: 10, y: 0, duration: 3.5, ease: 'power2.inOut',
+                onUpdate: () => camera.lookAt(0, 0, 0)
+            }, 36);
+            masterTimeline.to(pointLightCenter, { intensity: 5.0, duration: 1.2, yoyo: true, repeat: 1, ease: 'sine.inOut' },
+                38);
+
+            // ─── Loop render ───
+            const clock = new THREE.Clock();
+
+            function animate() {
+                requestAnimationFrame(animate);
+                const delta = clock.getDelta();
+                globalTime += delta;
+
+                if (nodeGroup.visible && globalTime > 5 && globalTime < 25) {
+                    networkRotation += delta * networkGroupRotationSpeed;
+                    nodeGroup.rotation.y = networkRotation;
+                    nodeGroup.rotation.x = Math.sin(networkRotation * 0.3) * 0.08;
+                } else if (logoGroup.visible) {
+                    logoGroup.rotation.y += delta * 0.15;
+                    logoGroup.rotation.x += delta * 0.04;
+                }
+
+                if (globalTime > 5 && globalTime < 35) {
+                    camera.position.x = Math.sin(globalTime * 0.4) * 0.08;
+                    camera.position.y += Math.cos(globalTime * 0.3) * 0.005;
+                    camera.lookAt(0, 0, 0);
+                }
+
+                // Update progress bar
+                const progress = Math.min(globalTime / TOTAL_DURATION, 1);
+                progressFill.style.width = `${progress * 100}%`;
+                const secs = Math.floor(globalTime);
+                const mins = Math.floor(secs / 60);
+                const remSecs = secs % 60;
+                statusText.textContent = `■ ${mins}:${remSecs.toString().padStart(2, '0')} / 0:40`;
+
+                if (progress > 0.02) {
+                    loadingEl.style.display = 'none';
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            // ─── Responsif ───
+            window.addEventListener('resize', () => {
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                camera.aspect = w / h;
+                camera.updateProjectionMatrix();
+                renderer.setSize(w, h);
+            });
+
+            // ─── Keyboard shortcuts ───
+            window.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Space') {
+                    e.preventDefault();
+                    if (masterTimeline.paused()) masterTimeline.play();
+                    else masterTimeline.pause();
+                }
+                if (e.key === 'r' || e.key === 'R') {
+                    e.preventDefault();
+                    masterTimeline.restart();
+                    globalTime = 0;
+                    nodeInterpolationProgress = 0;
+                    networkRotation = 0;
+                    for (let i = 0; i < NODE_COUNT; i++) {
+                        nodeNetworkPositions[i].copy(originalNetworkPositions[i]);
+                        nodeCurrentPositions[i].copy(originalNetworkPositions[i]);
+                    }
+                    updateNodeInstances();
+                    progressFill.style.width = '0%';
+                    loadingEl.style.display = 'block';
+                }
+                if (e.key === 'f' || e.key === 'F') {
+                    e.preventDefault();
+                    if (!document.fullscreenElement) document.body.requestFullscreen().catch(() => {});
+                    else document.exitFullscreen().catch(() => {});
+                }
+            });
+
+            // ─── Perekaman video ───
+            downloadBtn.disabled = false;
+
+            function startRecording() {
+                if (isRecording) return;
+                const canvas = renderer.domElement;
+                if (!canvas.captureStream) {
+                    alert('Browser tidak mendukung captureStream. Gunakan Chrome atau Edge terbaru.');
+                    return;
+                }
+                const stream = canvas.captureStream(60);
+                const mimeType = 'video/webm;codecs=vp9';
+                if (!window.MediaRecorder || !MediaRecorder.isTypeSupported(mimeType)) {
+                    alert('Browser tidak mendukung perekaman WebM VP9. Coba gunakan Chrome terbaru.');
+                    return;
+                }
+                recordedChunks = [];
+                mediaRecorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8000000 });
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) recordedChunks.push(event.data);
+                };
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'AXION_Neuralis_MotionGraphic.webm';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    isRecording = false;
+                    downloadBtn.textContent = '🔴 RECORD & DOWNLOAD (WEBM)';
+                    downloadBtn.disabled = false;
+                };
+                mediaRecorder.start();
+                isRecording = true;
+                downloadBtn.textContent = '⏺ RECORDING... (40 detik)';
+                downloadBtn.disabled = true;
+                setTimeout(() => {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                    }
+                }, TOTAL_DURATION * 1000 + 500);
+            }
+
+            downloadBtn.addEventListener('click', () => {
+                if (!isRecording) {
+                    masterTimeline.restart();
+                    globalTime = 0;
+                    for (let i = 0; i < NODE_COUNT; i++) {
+                        nodeNetworkPositions[i].copy(originalNetworkPositions[i]);
+                        nodeCurrentPositions[i].copy(originalNetworkPositions[i]);
+                    }
+                    updateNodeInstances();
+                    startRecording();
+                }
+            });
+
+            // ─── Mulai animasi ───
+            console.log('AXION Neuralis motion graphic dimulai.');
+            animate();
+            masterTimeline.play();
+        })();
+    </script>
 </body>
-</html>
+ </html>
