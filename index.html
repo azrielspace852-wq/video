@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>AXION NEURALIS — ONE SIGNAL · Cinematic Teaser 9:16</title>
+<title>AXION NEURALIS — ONE SIGNAL · Cinematic Teaser 9:16 · v2</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/unbounded@5/300.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/unbounded@5/400.css">
@@ -12,20 +12,17 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono@5/500.css">
 
 <style>
-  :root{
-    --bg:#050608; --panel:#0a0d12; --line:#1c2330; --line2:#28313f;
-    --txt:#c9d2df; --dim:#5d6a7d; --acc:#7de3ff; --gold:#ffd489;
-  }
+  :root{ --bg:#050608; --panel:#0a0d12; --line:#1c2330; --line2:#28313f;
+         --txt:#c9d2df; --dim:#5d6a7d; --acc:#7de3ff; --gold:#ffd489; --err:#ff7b6b; }
   *{margin:0;padding:0;box-sizing:border-box}
-  html,body{background:var(--bg);color:var(--txt);font-family:"IBM Plex Mono",monospace;}
+  html,body{background:var(--bg);color:var(--txt);font-family:"IBM Plex Mono",monospace}
   body{min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;
-       background:radial-gradient(120% 90% at 50% 0%, #0a0e15 0%, #050608 55%, #030405 100%);}
-  header{display:flex;justify-content:space-between;align-items:baseline;
+       background:radial-gradient(120% 90% at 50% 0%, #0a0e15 0%, #050608 55%, #030405 100%)}
+  header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;
          padding:14px 22px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.18em;color:var(--dim)}
   header b{color:var(--txt);font-weight:500}
-  header .r{color:var(--dim)}
-  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:18px 12px 26px}
-  #stage{position:relative;height:min(84vh,150vw);aspect-ratio:9/16;background:#000;
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px 12px 26px}
+  #stage{position:relative;height:min(88vh,150vw);aspect-ratio:9/16;background:#000;
          border:1px solid var(--line);box-shadow:0 0 0 1px #000,0 30px 80px -30px rgba(0,0,0,.9)}
   #view{width:100%;height:100%;display:block}
   .corner{position:absolute;width:14px;height:14px;border:1px solid rgba(125,227,255,.55);pointer-events:none}
@@ -35,7 +32,7 @@
   .c4{bottom:-6px;right:-6px;border-left:0;border-top:0}
   #stage .tag{position:absolute;top:-22px;left:0;font-size:9px;letter-spacing:.22em;color:var(--dim)}
   #stage .tag2{position:absolute;top:-22px;right:0;font-size:9px;letter-spacing:.22em;color:#8a5a5a}
-  #controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;width:min(96vw,560px)}
+  #controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;width:min(96vw,620px)}
   button,select{font-family:inherit;font-size:10px;letter-spacing:.14em;color:var(--txt);
     background:var(--panel);border:1px solid var(--line2);padding:9px 14px;cursor:pointer;border-radius:2px;
     transition:border-color .2s,color .2s,background .2s}
@@ -45,10 +42,11 @@
   #btnDl:hover:not(:disabled){border-color:var(--gold);background:#141006}
   .grp{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.16em;color:var(--dim)}
   #time{font-size:10px;color:var(--dim);letter-spacing:.12em;min-width:110px;text-align:center}
-  #prog{width:min(96vw,560px);height:2px;background:#10151d;position:relative;overflow:hidden}
+  #prog{width:min(96vw,620px);height:2px;background:#10151d;position:relative;overflow:hidden}
   #bar{position:absolute;inset:0;width:0%;background:linear-gradient(90deg,#2c8ca8,var(--acc));transition:width .15s linear}
-  #stat{font-size:9px;letter-spacing:.18em;color:var(--dim);text-align:center;min-height:14px}
-  #stat.err{color:#ff7b6b}
+  #stat{font-size:9px;letter-spacing:.16em;color:var(--dim);text-align:center;min-height:14px;max-width:min(96vw,620px)}
+  #stat.err{color:var(--err)}
+  #stat.ok{color:var(--acc)}
   #boot{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;gap:14px;
         align-items:center;justify-content:center;z-index:50;transition:opacity .6s}
   #boot.off{opacity:0;pointer-events:none}
@@ -71,13 +69,13 @@
 <body>
 
 <header>
-  <span><b>AXION NEURALIS</b> · PRODUCTION TEASER</span>
-  <span class="r">9:16 · 40.00s · H.264 · NO-AUDIO</span>
+  <span><b>AXION NEURALIS</b> · PRODUCTION TEASER · v2</span>
+  <span>9:16 · 40.00s · H.264 HIGH · NO-AUDIO</span>
 </header>
 
 <main>
   <div id="stage">
-    <span class="tag">SAFE ZONE 9:16</span><span class="tag2">● REC DETERMINISTIC</span>
+    <span class="tag">SAFE ZONE 9:16 · TITLES POST-LENS</span><span class="tag2">● REC DETERMINISTIC</span>
     <canvas id="view"></canvas>
     <i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i>
   </div>
@@ -90,7 +88,7 @@
     <span class="grp">FPS
       <select id="selFps"><option value="30" selected>30</option><option value="60">60</option></select>
     </span>
-    <button id="btnDl">⬇ UNDUH MP4</button>
+    <button id="btnDl">⬇ DOWNLOAD MP4</button>
   </div>
   <div id="prog"><div id="bar"></div></div>
   <div id="stat">MENYIAPKAN SISTEM…</div>
@@ -101,7 +99,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { gsap } from 'gsap';
-import { Muxer, ArrayBufferTarget } from 'mp4-muxer';
 
 /* ============================================================
    UTIL
@@ -116,7 +113,7 @@ function sphDir(out){const u=rnd()*2-1,ph=rnd()*Math.PI*2,s=Math.sqrt(1-u*u);out
 const n1=(t,f,p)=>Math.sin(t*f+p)*0.55+Math.sin(t*f*1.93+p*2.7)*0.3+Math.sin(t*f*3.71+p*5.1)*0.15;
 
 /* ============================================================
-   STATE — seluruh animasi 40s hidup di objek ini (deterministik)
+   STATE — seluruh animasi 40s (deterministik, di-seek per frame)
 ============================================================ */
 const S={
   t:0,
@@ -134,14 +131,15 @@ const S={
 };
 
 /* ============================================================
-   RENDERER / RT / PASS HELPERS
+   RENDERER + RENDER TARGETS
 ============================================================ */
 const canvas=$('view');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,stencil:false,
-  preserveDrawingBuffer:true,powerPreference:'high-performance'});
+  preserveDrawingBuffer:true,powerPreference:'high-performance'});   // 11.5 — buffer tetap tersedia utk VideoFrame
 renderer.setClearColor(0x000000,1);
 renderer.outputColorSpace=THREE.LinearSRGBColorSpace;
 renderer.toneMapping=THREE.NoToneMapping;
+const MAX_ANISO=renderer.capabilities.getMaxAnisotropy();
 
 let curW=540,curH=960;
 function makeRT(w,h,withDepth){
@@ -150,18 +148,19 @@ function makeRT(w,h,withDepth){
   if(withDepth){ rt.depthTexture=new THREE.DepthTexture(w,h); rt.depthTexture.type=THREE.UnsignedIntType; }
   return rt;
 }
-let rtScene=makeRT(curW,curH,true),
+let rtScene=makeRT(curW,curH,true),                       // 3D HDR + depth
     rtH1=makeRT(curW>>1,curH>>1,false), rtH2=makeRT(curW>>1,curH>>1,false), rtH3=makeRT(curW>>1,curH>>1,false),
-    rtQ1=makeRT(curW>>2,curH>>2,false), rtQ2=makeRT(curW>>2,curH>>2,false);
+    rtQ1=makeRT(curW>>2,curH>>2,false), rtQ2=makeRT(curW>>2,curH>>2,false),
+    rtComp=makeRT(curW,curH,false);                       // 3D graded + teks tajam
 
 const passScene=new THREE.Scene();
 const passCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
 const quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2));
 passScene.add(quad);
 function runPass(mat,rt){ quad.material=mat; renderer.setRenderTarget(rt); renderer.render(passScene,passCam); }
-
 const QVERT=`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`;
 
+/* ---------- pass: bright ---------- */
 const matBright=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
   uniform sampler2D tSrc; uniform float uTh; varying vec2 vUv;
   void main(){ vec3 c=texture2D(tSrc,vUv).rgb;
@@ -169,6 +168,7 @@ const matBright=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
     gl_FragColor=vec4(c*smoothstep(uTh,uTh+0.5,l),1.0); }`,
   uniforms:{tSrc:{value:null},uTh:{value:0.85}}});
 
+/* ---------- pass: separable gaussian ---------- */
 const matBlur=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
   uniform sampler2D tSrc; uniform vec2 uDir,uTexel; uniform float uRad; varying vec2 vUv;
   void main(){ vec2 o=uDir*uTexel*uRad;
@@ -180,30 +180,42 @@ const matBlur=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
     gl_FragColor=vec4(c,1.0); }`,
   uniforms:{tSrc:{value:null},uDir:{value:new THREE.Vector2()},uTexel:{value:new THREE.Vector2()},uRad:{value:1}}});
 
-const matGrade=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
-  uniform sampler2D tScene,tDof,tBloom,tWide,tDepth;
-  uniform vec2 uRes;
-  uniform float uNear,uFar,uFocus,uAp,uTime,uGrain,uCA,uVig,uHal,uExpo;
-  uniform vec3 uTint;
+/* ---------- pass: composite 3D (DOF + bloom) → rtComp ---------- */
+const matComp=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
+  uniform sampler2D tScene,tDof,tBloom,tDepth;
+  uniform float uNear,uFar,uFocus,uAp;
   varying vec2 vUv;
   float cocAt(vec2 uv){ float d=texture2D(tDepth,uv).x;
     float dist=-((uNear*uFar)/((uFar-uNear)*d-uFar));
     return clamp(abs(dist-uFocus)*uAp,0.0,1.0); }
+  void main(){
+    float coc=cocAt(vUv);
+    vec3 col=mix(texture2D(tScene,vUv).rgb, texture2D(tDof,vUv).rgb, coc);
+    col+=texture2D(tBloom,vUv).rgb*0.85;
+    gl_FragColor=vec4(col,1.0);
+  }`,
+  uniforms:{ tScene:{value:null},tDof:{value:null},tBloom:{value:null},tDepth:{value:null},
+    uNear:{value:0.4},uFar:{value:60},uFocus:{value:8.5},uAp:{value:0.5} }});
+
+/* ---------- pass: final grade (SETELAH teks) — grain/CA/vignette/halation/ACES ---------- */
+const matGrade=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
+  uniform sampler2D tComp,tWide;
+  uniform vec2 uRes;
+  uniform float uTime,uGrain,uCA,uVig,uHal,uExpo;
+  uniform vec3 uTint;
+  varying vec2 vUv;
   vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0); }
   float hash12(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33);
     return fract((p3.x+p3.y)*p3.z); }
   void main(){
     vec2 uv=vUv; vec2 cc=uv-0.5; float r2=dot(cc,cc);
     float ca=uCA*(0.35+r2*3.2);
-    float coc=cocAt(uv);
     vec2 off=cc*ca;
     vec3 col;
-    col.r=mix(texture2D(tScene,uv+off).r, texture2D(tDof,uv+off*1.6).r, coc);
-    col.g=mix(texture2D(tScene,uv).g,     texture2D(tDof,uv).g,         coc);
-    col.b=mix(texture2D(tScene,uv-off).b, texture2D(tDof,uv-off*1.6).b, coc);
-    vec3 bl=texture2D(tBloom,uv).rgb;
-    vec3 wd=texture2D(tWide,uv).rgb;
-    col+=bl*0.85+wd*uHal;
+    col.r=texture2D(tComp,uv+off).r;
+    col.g=texture2D(tComp,uv).g;
+    col.b=texture2D(tComp,uv-off).b;
+    col+=texture2D(tWide,uv).rgb*uHal;
     col*=uTint;
     float vig=smoothstep(0.95,0.30,length(cc)*1.28);
     col*=mix(1.0,vig,uVig);
@@ -215,44 +227,36 @@ const matGrade=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
     col=pow(max(col,vec3(0.0)),vec3(0.4545));
     gl_FragColor=vec4(col,1.0);
   }`,
-  uniforms:{
-    tScene:{value:null},tDof:{value:null},tBloom:{value:null},tWide:{value:null},tDepth:{value:null},
+  uniforms:{ tComp:{value:null},tWide:{value:null},
     uRes:{value:new THREE.Vector2(curW,curH)},
-    uNear:{value:0.4},uFar:{value:60},uFocus:{value:8.5},uAp:{value:0.5},
     uTime:{value:0},uGrain:{value:0.055},uCA:{value:0.0022},uVig:{value:0.55},uHal:{value:0.5},uExpo:{value:1.15},
-    uTint:{value:new THREE.Color(1,1,1)}
-  }});
+    uTint:{value:new THREE.Color(1,1,1)} }});
 
-function setRenderSize(w,h){
+function setPipelineSize(w,h){
   curW=w; curH=h;
-  renderer.setPixelRatio(1);
-  renderer.setSize(w,h,false);
-  rtScene.setSize(w,h); rtH1.setSize(w>>1,h>>1); rtH2.setSize(w>>1,h>>1); rtH3.setSize(w>>1,h>>1);
+  rtScene.setSize(w,h); rtComp.setSize(w,h);
+  rtH1.setSize(w>>1,h>>1); rtH2.setSize(w>>1,h>>1); rtH3.setSize(w>>1,h>>1);
   rtQ1.setSize(w>>2,h>>2); rtQ2.setSize(w>>2,h>>2);
   matGrade.uniforms.uRes.value.set(w,h);
 }
 
 /* ============================================================
-   SCENE — geometri partikel (1 draw call)
+   SCENE 3D
 ============================================================ */
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(55,9/16,0.4,60);
-scene.add(camera);
 
+/* ---------- particle morph — 1 draw call ---------- */
 const N=45000;
 function buildShapes(){
   const pos=new Float32Array(N*3), orb=new Float32Array(N*3), brain=new Float32Array(N*3),
         tree=new Float32Array(N*3), coin=new Float32Array(N*3), gal=new Float32Array(N*3),
         aRand=new Float32Array(N), aPart=new Float32Array(N), aSize=new Float32Array(N), aGroup=new Float32Array(N);
   const d=[0,0,0];
-
-  // nodes utk neural sphere
   const nodes=[];
   for(let i=0;i<90;i++){ sphDir(d); nodes.push([d[0]*2.55,d[1]*2.55*1.32,d[2]*2.55]); }
-
-  // broadcast tree skeleton
   const segs=[];
-  function rotAxis(v,ang){ // rotate around random-ish axis (precomputed per call)
+  function rotAxis(v,ang){
     const ax=[gauss(),gauss(),gauss()]; const L=Math.hypot(ax[0],ax[1],ax[2])||1;
     const x=ax[0]/L,y=ax[1]/L,z=ax[2]/L,c=Math.cos(ang),s=Math.sin(ang),ic=1-c;
     const [vx,vy,vz]=v;
@@ -274,37 +278,31 @@ function buildShapes(){
   })(0,-2.6,0,[0,1,0],1.5,0);
   let totLen=0; for(const s of segs) totLen+=s[6];
   const cum=[]; let acc=0; for(const s of segs){ acc+=s[6]/totLen; cum.push(acc); }
-
   const ringTilt=[0.55,1.05,1.45];
   for(let i=0;i<N;i++){
     const i3=i*3;
-    // --- neural sphere (position)
     if(rnd()<0.3){ const nd=nodes[(rnd()*nodes.length)|0];
       pos[i3]=nd[0]+gauss()*0.24; pos[i3+1]=nd[1]+gauss()*0.24; pos[i3+2]=nd[2]+gauss()*0.24;
     } else { sphDir(d); const r=2.55*(0.9+rnd()*0.2);
       pos[i3]=d[0]*r; pos[i3+1]=d[1]*r*1.32; pos[i3+2]=d[2]*r; }
-    // --- identity orb + rings
     if(rnd()<0.13){ const j=(rnd()*3)|0, th=rnd()*Math.PI*2, R=2.45+0.30*j;
-      let x=Math.cos(th)*R, y=0, z=Math.sin(th)*R;
+      const x=Math.cos(th)*R, y=0, z=Math.sin(th)*R;
       const t=ringTilt[j], c=Math.cos(t), s=Math.sin(t);
       const y2=y*c-z*s, z2=y*s+z*c; const zt=0.2*j, c2=Math.cos(zt), s2=Math.sin(zt);
-      orb[i3]=x*c2+ z2*s2; orb[i3+1]=y2; orb[i3+2]=-x*s2+z2*c2; aPart[i]=1;
+      orb[i3]=x*c2+z2*s2; orb[i3+1]=y2; orb[i3+2]=-x*s2+z2*c2; aPart[i]=1;
     } else { sphDir(d);
       const th=Math.acos(clamp(d[1],-1,1)), ph=Math.atan2(d[2],d[0]);
       const r=2.02+0.07*Math.sin(th*22+3*Math.sin(ph*3));
       orb[i3]=d[0]*r; orb[i3+1]=d[1]*r; orb[i3+2]=d[2]*r; }
-    // --- brain
     sphDir(d);
     const th=Math.acos(clamp(d[1],-1,1)), ph=Math.atan2(d[2],d[0]);
     const rr=1.92*(1+0.105*Math.sin(6.5*th)*Math.sin(5.2*ph)+0.055*Math.sin(11*ph+2*th));
     brain[i3]=d[0]*rr*1.28; brain[i3+1]=d[1]*rr*1.02+0.15; brain[i3+2]=d[2]*rr*1.12;
-    // --- broadcast tree
     const pick=rnd(); let si=0; while(si<cum.length-1&&cum[si]<pick) si++;
     const sg=segs[si], tt=rnd(), jg=0.05*(1+sg[7]*0.25);
     tree[i3]  =sg[0]+(sg[3]-sg[0])*tt+gauss()*jg;
     tree[i3+1]=sg[1]+(sg[4]-sg[1])*tt+gauss()*jg;
     tree[i3+2]=sg[2]+(sg[5]-sg[2])*tt+gauss()*jg;
-    // --- coin
     const cc=rnd();
     if(cc<0.4){ const r=1.62*Math.sqrt(rnd()), a=rnd()*Math.PI*2;
       coin[i3]=Math.cos(a)*r; coin[i3+1]=Math.sin(a)*r; coin[i3+2]=0.115;
@@ -312,11 +310,9 @@ function buildShapes(){
       coin[i3]=Math.cos(a)*r; coin[i3+1]=Math.sin(a)*r; coin[i3+2]=-0.115;
     } else { const a=rnd()*Math.PI*2;
       coin[i3]=Math.cos(a)*1.62; coin[i3+1]=Math.sin(a)*1.62; coin[i3+2]=(rnd()*2-1)*0.115; }
-    // --- galaxy
     const arm=(rnd()*3)|0, tg=Math.pow(rnd(),0.72), rg=0.35+3.05*tg;
     const ag=arm*2.0944+rg*1.75+gauss()*0.10*(1.4-tg);
     gal[i3]=Math.cos(ag)*rg; gal[i3+1]=gauss()*0.14*(1.3-tg); gal[i3+2]=Math.sin(ag)*rg;
-    // --- meta
     aRand[i]=rnd();
     aSize[i]=rnd()<0.04? 2.0+rnd() : 0.7+rnd()*0.9;
     const g=i%100; aGroup[i]= g<17?0 : g<34?1 : g<51?2 : g<68?3 : 4;
@@ -335,7 +331,6 @@ function buildShapes(){
   geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),30);
   return geo;
 }
-
 const pUniforms={
   uW:{value:[1,0,0,0,0]}, uFinale:{value:0}, uBirth:{value:0}, uImp:{value:0},
   uDisperse:{value:0}, uExplode:{value:0}, uSuck:{value:0}, uCompress:{value:0},
@@ -409,7 +404,7 @@ const points=new THREE.Points(buildShapes(),pointsMat);
 points.frustumCulled=false; points.renderOrder=0;
 scene.add(points);
 
-/* ---------- Synapse + Beam lines (1 draw call) ---------- */
+/* ---------- synapse + beams — 1 draw call ---------- */
 function buildLines(){
   const nodes=[];
   for(let i=0;i<90;i++){ const d=[0,0,0]; sphDir(d); nodes.push([d[0]*2.55,d[1]*2.55*1.32,d[2]*2.55]); }
@@ -428,7 +423,6 @@ function buildLines(){
       if(syn.length>=330) break; }
     if(syn.length>=330) break;
   }
-  // beams + panel anchors
   const beams=[], panelPos=[], phases=[];
   for(let i=0;i<64;i++){
     const d=[0,0,0]; sphDir(d); d[1]*=1.6;
@@ -481,7 +475,7 @@ const lines=new THREE.LineSegments(lineData.geo,new THREE.ShaderMaterial({
 lines.frustumCulled=false; lines.renderOrder=1; lines.visible=false;
 scene.add(lines);
 
-/* ---------- Target panels (1 draw call, instanced) ---------- */
+/* ---------- target panels — 1 draw call (instanced) ---------- */
 const panelGeo=new THREE.PlaneGeometry(0.30,0.38);
 panelGeo.setAttribute('aPhase',new THREE.InstancedBufferAttribute(new Float32Array(lineData.phases),1));
 const panelMat=new THREE.ShaderMaterial({
@@ -517,7 +511,7 @@ const panels=new THREE.InstancedMesh(panelGeo,panelMat,64);
 panels.frustumCulled=false; panels.renderOrder=2; panels.visible=false;
 scene.add(panels);
 
-/* ---------- Emblem koin & core glow ---------- */
+/* ---------- emblem + core glow ---------- */
 function glowTexture(){
   const c=document.createElement('canvas'); c.width=c.height=256;
   const x=c.getContext('2d');
@@ -554,57 +548,75 @@ function buildEmblem(){
   scene.add(emblem);
 }
 
-/* ---------- Text cards (CanvasTexture → plane di WebGL) ---------- */
-const cardGeo=new THREE.PlaneGeometry(2.7,1.6875);
-function fitFont(x,text,fam,weight,maxW,px){
-  do{ x.font=`${weight} ${px}px "${fam}"`; if(x.measureText(text).width<=maxW) break; px-=4; }while(px>26);
-  return px;
-}
+/* ============================================================
+   TEXT LAYER — scene terpisah, di-composite SETELAH DOF+bloom,
+   SEBELUM grade. Tekstur supersampled 2048px + anisotropy max.
+============================================================ */
+const textScene=new THREE.Scene();
+const HW=1.0, HH=16/9;
+const textCam=new THREE.OrthographicCamera(-HW,HW,HH,-HH,0.1,10);
+textCam.position.z=5;
+const cardGeo=new THREE.PlaneGeometry(1.72,1.075);   // rasio 1024×640
+
 function drawCard(cfg){
-  const c=document.createElement('canvas'); c.width=1024; c.height=640;
+  const LW=1024, LH=640, SS=2;                          // 2048×1280 — lebar tekstur dlm rentang 2048–4096
+  const c=document.createElement('canvas');
+  c.width=LW*SS; c.height=LH*SS;
   const x=c.getContext('2d');
-  x.clearRect(0,0,1024,640);
+  x.scale(SS,SS);                                       // font digambar pd resolusi penuh
+  x.clearRect(0,0,LW,LH);
   x.textAlign='center'; x.textBaseline='middle';
+  const fit=(text,fam,weight,maxW,px)=>{
+    do{ x.font=`${weight} ${px}px "${fam}"`; if(x.measureText(text).width<=maxW) break; px-=4; }while(px>26);
+    return px; };
+  const sharp=(text,px,y)=>{ x.shadowBlur=0; x.font=x.font; x.fillText(text,512,y); };
   if(cfg.lockup){
-    x.font=`700 ${fitFont(x,'AXION','Unbounded',700,880,168)}px "Unbounded"`;
+    const p1=fit('AXION','Unbounded',700,880,168);
+    x.font=`700 ${p1}px "Unbounded"`;
     x.shadowColor='rgba(255,255,255,0.9)'; x.shadowBlur=30; x.fillStyle='#fff';
-    x.fillText('AXION',512,196);
-    x.shadowBlur=16;
+    x.fillText('AXION',512,196); x.shadowBlur=0; x.fillText('AXION',512,196);
     x.font='300 62px "Unbounded"'; try{x.letterSpacing='30px';}catch(e){}
-    x.fillStyle='rgba(255,255,255,0.96)';
-    x.fillText('NEURALIS',526,318);
+    x.shadowColor='rgba(255,255,255,0.7)'; x.shadowBlur=16; x.fillStyle='rgba(255,255,255,0.97)';
+    x.fillText('NEURALIS',526,318); x.shadowBlur=0; x.fillText('NEURALIS',526,318);
     try{x.letterSpacing='0px';}catch(e){}
-    x.shadowBlur=0; x.fillStyle='rgba(255,255,255,0.55)'; x.fillRect(442,382,140,3);
-    x.font=`400 ${fitFont(x,cfg.tag,'Unbounded',400,880,46)}px "Unbounded"`;
-    x.shadowColor='rgba(255,255,255,0.6)'; x.shadowBlur=14;
-    x.fillStyle='rgba(255,255,255,0.9)';
-    x.fillText(cfg.tag,512,444);
-    if(cfg.hud){ x.shadowBlur=0; x.font='500 24px "IBM Plex Mono"';
-      try{x.letterSpacing='7px';}catch(e){}
+    x.fillStyle='rgba(255,255,255,0.55)'; x.fillRect(442,382,140,3);
+    const p2=fit(cfg.tag,'Unbounded',400,880,46);
+    x.font=`400 ${p2}px "Unbounded"`;
+    x.shadowColor='rgba(255,255,255,0.6)'; x.shadowBlur=14; x.fillStyle='rgba(255,255,255,0.92)';
+    x.fillText(cfg.tag,512,444); x.shadowBlur=0; x.fillText(cfg.tag,512,444);
+    if(cfg.hud){ x.font='500 24px "IBM Plex Mono"'; try{x.letterSpacing='7px';}catch(e){}
       x.fillStyle='rgba(255,255,255,0.5)'; x.fillText(cfg.hud,512,540); }
   } else if(cfg.logo){
-    x.font=`700 ${fitFont(x,'AXION','Unbounded',700,880,168)}px "Unbounded"`;
+    const p1=fit('AXION','Unbounded',700,880,168);
+    x.font=`700 ${p1}px "Unbounded"`;
     x.shadowColor='rgba(255,255,255,0.9)'; x.shadowBlur=30; x.fillStyle='#fff';
-    x.fillText('AXION',512,238);
-    x.shadowBlur=16; x.font='300 62px "Unbounded"'; try{x.letterSpacing='30px';}catch(e){}
-    x.fillText('NEURALIS',526,362); try{x.letterSpacing='0px';}catch(e){}
-    x.shadowBlur=0; x.font='500 27px "IBM Plex Mono"'; try{x.letterSpacing='7px';}catch(e){}
+    x.fillText('AXION',512,238); x.shadowBlur=0; x.fillText('AXION',512,238);
+    x.font='300 62px "Unbounded"'; try{x.letterSpacing='30px';}catch(e){}
+    x.shadowColor='rgba(255,255,255,0.7)'; x.shadowBlur=16; x.fillStyle='rgba(255,255,255,0.97)';
+    x.fillText('NEURALIS',526,362); x.shadowBlur=0; x.fillText('NEURALIS',526,362);
+    try{x.letterSpacing='0px';}catch(e){}
+    x.font='500 27px "IBM Plex Mono"'; try{x.letterSpacing='7px';}catch(e){}
     x.fillStyle='rgba(255,255,255,0.6)'; x.fillText(cfg.hud,512,486);
   } else {
     x.font='500 27px "IBM Plex Mono"'; try{x.letterSpacing='8px';}catch(e){}
     x.fillStyle='rgba(255,255,255,0.62)'; x.fillText(cfg.hud,512,88);
     try{x.letterSpacing='0px';}catch(e){}
-    x.font=`700 ${fitFont(x,cfg.title,'Unbounded',700,930,116)}px "Unbounded"`;
+    const p1=fit(cfg.title,'Unbounded',700,930,116);
+    x.font=`700 ${p1}px "Unbounded"`;
     x.shadowColor='rgba(255,255,255,0.85)'; x.shadowBlur=26; x.fillStyle='#fff';
-    x.fillText(cfg.title,512,292);
-    x.shadowBlur=0; x.fillStyle='rgba(255,255,255,0.55)'; x.fillRect(442,372,140,3);
-    x.font=`400 ${fitFont(x,cfg.tag,'Unbounded',400,900,46)}px "Unbounded"`;
-    x.shadowColor='rgba(255,255,255,0.55)'; x.shadowBlur=12;
-    x.fillStyle='rgba(255,255,255,0.9)';
-    x.fillText(cfg.tag,512,452);
+    x.fillText(cfg.title,512,292); x.shadowBlur=0; x.fillText(cfg.title,512,292);
+    x.fillStyle='rgba(255,255,255,0.55)'; x.fillRect(442,372,140,3);
+    const p2=fit(cfg.tag,'Unbounded',400,900,46);
+    x.font=`400 ${p2}px "Unbounded"`;
+    x.shadowColor='rgba(255,255,255,0.55)'; x.shadowBlur=12; x.fillStyle='rgba(255,255,255,0.92)';
+    x.fillText(cfg.tag,512,452); x.shadowBlur=0; x.fillText(cfg.tag,512,452);
   }
   const t=new THREE.CanvasTexture(c);
-  t.colorSpace=THREE.SRGBColorSpace; t.anisotropy=4;
+  t.colorSpace=THREE.SRGBColorSpace;
+  t.generateMipmaps=true;
+  t.minFilter=THREE.LinearMipmapLinearFilter;
+  t.magFilter=THREE.LinearFilter;
+  t.anisotropy=MAX_ANISO;
   return t;
 }
 function makeTextMat(tex,color){
@@ -636,30 +648,31 @@ function makeTextMat(tex,color){
       }`
   });
 }
-const cards={};
+const cards={}; const cardBaseY={};
 function buildCards(){
   const defs=[
-    ['intro', drawCard({logo:1,hud:'// THE ECOSYSTEM BEGINS'}), [0.93,0.95,1], 0],
-    ['acc',   drawCard({hud:'01 · IDENTITY LAYER',title:'AXION ACCOUNT',tag:'Satu Identitas. Semua Layanan.'}), [0.35,0.9,1], -0.55],
-    ['ai',    drawCard({hud:'02 · COGNITION CORE',title:'AXION AI',tag:'Kecerdasan di Dalam Setiap Sistem.'}), [0.7,0.55,1], -0.55],
-    ['ads',   drawCard({hud:'03 · SIGNAL NETWORK',title:'AXION ADS',tag:'Sinyal yang Tepat. Audiens yang Tepat.'}), [1,0.55,0.68], -0.55],
-    ['coin',  drawCard({hud:'04 · VALUE PROTOCOL',title:'AXION COIN',tag:'Mata Uang Ekosistem.'}), [1,0.82,0.5], -0.55],
-    ['fin',   drawCard({lockup:1,tag:'One Ecosystem. Infinite Signals.',hud:'// TRANSMISSION COMPLETE'}), [0.95,0.96,1], 0.1],
+    ['intro', drawCard({logo:1,hud:'// THE ECOSYSTEM BEGINS'}), [0.93,0.95,1], 0.08],
+    ['acc',   drawCard({hud:'01 · IDENTITY LAYER',title:'AXION ACCOUNT',tag:'Satu Identitas. Semua Layanan.'}), [0.35,0.9,1], -0.47],
+    ['ai',    drawCard({hud:'02 · COGNITION CORE',title:'AXION AI',tag:'Kecerdasan di Dalam Setiap Sistem.'}), [0.7,0.55,1], -0.47],
+    ['ads',   drawCard({hud:'03 · SIGNAL NETWORK',title:'AXION ADS',tag:'Sinyal yang Tepat. Audiens yang Tepat.'}), [1,0.55,0.68], -0.47],
+    ['coin',  drawCard({hud:'04 · VALUE PROTOCOL',title:'AXION COIN',tag:'Mata Uang Ekosistem.'}), [1,0.82,0.5], -0.47],
+    ['fin',   drawCard({lockup:1,tag:'One Ecosystem. Infinite Signals.',hud:'// TRANSMISSION COMPLETE'}), [0.95,0.96,1], 0.08],
   ];
+  let idx=0;
   for(const [name,tex,col,y] of defs){
     const m=new THREE.Mesh(cardGeo,makeTextMat(tex,col));
-    m.position.set(0,y,-4.6); m.renderOrder=10; m.visible=false;
-    camera.add(m); cards[name]=m;
+    m.position.set(0,y,0); m.renderOrder=10; m.visible=false;
+    textScene.add(m); cards[name]=m; cardBaseY[name]={y,ph:idx*1.7}; idx++;
   }
 }
 
 /* ============================================================
-   GSAP TIMELINE — 40.00 detik, fully seekable
+   GSAP TIMELINE — 40.00s, deterministik
 ============================================================ */
 const TL=gsap.timeline({paused:true});
 function buildTimeline(){
   TL.set(S,{ringR:0},0);
-  /* -------- SCENE 0 · GENESIS (0–6) -------- */
+  /* SCENE 0 · GENESIS */
   TL.to(S,{coreOp:0.9,coreScale:0.34,corePulse:1,duration:0.9,ease:'power2.out'},0.15);
   TL.to(S,{pOp:1,duration:0.7,ease:'power1.out'},0.95);
   TL.to(S,{birth:1,duration:2.6,ease:'expo.out'},1.0);
@@ -677,7 +690,7 @@ function buildTimeline(){
   TL.to(S,{imp:0,duration:1.0,ease:'expo.out'},6.0);
   TL.to(S,{intensity:1.5,ca:1.0,duration:0.9,ease:'power2.out'},6.05);
   TL.to(S,{coreOp:0.35,coreScale:0.5,duration:1.0},6.0);
-  /* -------- SCENE 1 · ACCOUNT (6–13) -------- */
+  /* SCENE 1 · ACCOUNT */
   TL.to(S,{tintR:0.96,tintG:1.03,tintB:1.06,duration:1.2},6.2);
   TL.to(S,{camA:0.85,camR:4.6,duration:3.4,ease:'power2.inOut'},6.0);
   TL.to(S,{camY:0.5,duration:3.0,ease:'power2.inOut'},6.2);
@@ -692,7 +705,7 @@ function buildTimeline(){
   TL.to(S,{w1:0,w2:1,duration:0.9,ease:'power2.inOut'},13.0);
   TL.to(S,{disperse:0,duration:0.9,ease:'power2.out'},13.25);
   TL.to(S,{tintR:1.0,tintG:0.97,tintB:1.06,duration:1.0},13.0);
-  /* -------- SCENE 2 · AI (13–20) -------- */
+  /* SCENE 2 · AI */
   TL.to(S,{lineOp0:0.9,duration:1.0},13.4);
   TL.to(S,{lsr:0.55,lsg:0.4,lsb:1.0,duration:1.2},13.4);
   TL.to(S,{lineSpeed:0.8,duration:1.5},13.5);
@@ -712,7 +725,7 @@ function buildTimeline(){
   TL.to(S,{w2:0,w3:1,duration:0.9,ease:'power2.inOut'},20.1);
   TL.to(S,{explode:0,duration:1.0,ease:'power2.out'},20.15);
   TL.to(S,{intensity:1.5,ca:1.0,duration:1.0},19.9);
-  /* -------- SCENE 3 · ADS (20–27) -------- */
+  /* SCENE 3 · ADS */
   TL.to(S,{tintR:1.05,tintG:0.97,tintB:1.0,duration:1.0},20.4);
   TL.to(S,{lineOp1:1,duration:1.0,ease:'power2.out'},20.6);
   TL.to(S,{panelsOp:1,duration:1.2,ease:'power2.out'},21.0);
@@ -728,7 +741,7 @@ function buildTimeline(){
   TL.to(S,{w3:0,w4:1,duration:0.8,ease:'power2.inOut'},27.2);
   TL.to(S,{compress:1,duration:0.7,ease:'power3.in'},27.3);
   TL.to(S,{suck:0,duration:0.6},27.9);
-  /* -------- SCENE 4 · COIN (27–34) -------- */
+  /* SCENE 4 · COIN */
   TL.to(S,{tintR:1.04,tintG:1.0,tintB:0.93,duration:1.0},27.6);
   TL.to(S,{camR:1.6,camY:0.15,duration:1.2,ease:'power3.in'},26.9);
   TL.to(S,{fov:46,duration:1.2},26.9);
@@ -752,7 +765,7 @@ function buildTimeline(){
   TL.to(S,{w4:0,duration:1.2,ease:'power2.inOut'},34.0);
   TL.to(S,{finale:1,duration:1.8,ease:'power2.inOut'},33.8);
   TL.to(S,{tintR:1,tintG:1,tintB:1,duration:1.2},34.2);
-  /* -------- SCENE 5 · FINALE (34–40) -------- */
+  /* SCENE 5 · FINALE */
   TL.to(S,{coreOp:1,coreScale:1.05,duration:1.8,ease:'power2.out'},34.2);
   TL.to(S,{finOp:1,duration:1.6,ease:'power2.out'},35.2);
   TL.to(S,{finSweep:1.35,duration:2.2,ease:'power2.inOut'},35.3);
@@ -765,7 +778,7 @@ function buildTimeline(){
 }
 
 /* ============================================================
-   UPDATE + RENDER
+   UPDATE + RENDER — 3D → DOF → bloom → teks tajam → grade
 ============================================================ */
 const uwArr=pUniforms.uW.value;
 function updateScene(){
@@ -789,8 +802,7 @@ function updateScene(){
 
   points.rotation.y=S.coinRot;
 
-  const lOn=(S.lineOp0+S.lineOp1)>0.002;
-  lines.visible=lOn;
+  lines.visible=(S.lineOp0+S.lineOp1)>0.002;
   lUniforms.uTime.value=tt; lUniforms.uOp0.value=S.lineOp0; lUniforms.uOp1.value=S.lineOp1;
   lUniforms.uSpeed.value=S.lineSpeed;
   lUniforms.uColSyn.value.setRGB(S.lsr,S.lsg,S.lsb);
@@ -807,54 +819,68 @@ function updateScene(){
   emblem.material.opacity=S.emblemOp; emblem.rotation.y=S.coinRot;
 
   const cardState=[
-    [cards.intro,S.introOp,S.introOp,S.introGlitch,-1],
-    [cards.acc,S.accOp,S.accOp,0,-1],
-    [cards.ai,S.aiOp,S.aiOp,0,-1],
-    [cards.ads,S.adsOp,S.adsOp,0,-1],
-    [cards.coin,S.coinOp,S.coinOp,0,-1],
-    [cards.fin,S.finOp,S.finOp,0,S.finSweep],
+    ['intro',S.introOp,S.introOp,S.introGlitch,-1],
+    ['acc',S.accOp,S.accOp,0,-1],
+    ['ai',S.aiOp,S.aiOp,0,-1],
+    ['ads',S.adsOp,S.adsOp,0,-1],
+    ['coin',S.coinOp,S.coinOp,0,-1],
+    ['fin',S.finOp,S.finOp,0,S.finSweep],
   ];
-  for(const [m,op,rev,gl,sw] of cardState){
+  for(const [name,op,rev,gl,sw] of cardState){
+    const m=cards[name];
     m.visible=op>0.001;
-    const u=m.material.uniforms;
-    u.uOpacity.value=op; u.uReveal.value=rev; u.uGlitch.value=gl; u.uSweep.value=sw; u.uTime.value=tt;
+    if(m.visible){
+      const b=cardBaseY[name];
+      m.position.y=b.y+0.006*Math.sin(tt*0.6+b.ph);
+      const u=m.material.uniforms;
+      u.uOpacity.value=op; u.uReveal.value=rev; u.uGlitch.value=gl; u.uSweep.value=sw; u.uTime.value=tt;
+    }
   }
 
+  matComp.uniforms.uFocus.value=S.focus; matComp.uniforms.uAp.value=S.ap;
   const g=matGrade.uniforms;
-  g.uTime.value=tt; g.uFocus.value=S.focus; g.uAp.value=S.ap;
-  g.uGrain.value=S.grain; g.uCA.value=0.0022*S.ca;
+  g.uTime.value=tt; g.uGrain.value=S.grain; g.uCA.value=0.0022*S.ca;
   g.uTint.value.setRGB(S.tintR,S.tintG,S.tintB);
 }
 function renderFrame(t){
   TL.seek(t,false);
   S.t=t;
   updateScene();
+  // 1) scene 3D → rtScene (+depth)
   renderer.setRenderTarget(rtScene); renderer.render(scene,camera);
-  // DOF blur (half res)
+  // 2) DOF blur (half res)
   matBlur.uniforms.uRad.value=2.0;
   matBlur.uniforms.tSrc.value=rtScene.texture; matBlur.uniforms.uDir.value.set(1,0);
   matBlur.uniforms.uTexel.value.set(1/curW,1/curH); runPass(matBlur,rtH2);
   matBlur.uniforms.uRad.value=2.8;
   matBlur.uniforms.tSrc.value=rtH2.texture; matBlur.uniforms.uDir.value.set(0,1);
   matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtH3);
-  // Bloom half
+  // 3) bloom half
   matBright.uniforms.tSrc.value=rtScene.texture; runPass(matBright,rtH1);
   matBlur.uniforms.uRad.value=1.4;
   matBlur.uniforms.tSrc.value=rtH1.texture; matBlur.uniforms.uDir.value.set(1,0);
   matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtH2);
   matBlur.uniforms.tSrc.value=rtH2.texture; matBlur.uniforms.uDir.value.set(0,1); runPass(matBlur,rtH1);
-  // Bloom wide (quarter)
+  // 4) bloom wide (quarter) utk halation
   matBlur.uniforms.uRad.value=2.5;
   matBlur.uniforms.tSrc.value=rtH1.texture; matBlur.uniforms.uDir.value.set(1,0);
   matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtQ1);
   matBlur.uniforms.tSrc.value=rtQ1.texture; matBlur.uniforms.uDir.value.set(0,1);
   matBlur.uniforms.uTexel.value.set(4/curW,4/curH); runPass(matBlur,rtQ2);
-  // Grade
-  matGrade.uniforms.tScene.value=rtScene.texture;
-  matGrade.uniforms.tDof.value=rtH3.texture;
-  matGrade.uniforms.tBloom.value=rtH1.texture;
+  // 5) composite 3D (DOF+bloom) → rtComp
+  matComp.uniforms.tScene.value=rtScene.texture;
+  matComp.uniforms.tDof.value=rtH3.texture;
+  matComp.uniforms.tBloom.value=rtH1.texture;
+  matComp.uniforms.tDepth.value=rtScene.depthTexture;
+  runPass(matComp,rtComp);
+  // 6) TEXT LAYER — digambar tajam di atas rtComp (TIDAK kena DOF/bloom)
+  renderer.setRenderTarget(rtComp);
+  renderer.autoClearColor=false;
+  renderer.render(textScene,textCam);
+  renderer.autoClearColor=true;
+  // 7) final grade (grain/CA/vignette/halation/ACES) → layar
+  matGrade.uniforms.tComp.value=rtComp.texture;
   matGrade.uniforms.tWide.value=rtQ2.texture;
-  matGrade.uniforms.tDepth.value=rtScene.depthTexture;
   renderer.setRenderTarget(null); runPass(matGrade,null);
 }
 
@@ -863,100 +889,123 @@ function renderFrame(t){
 ============================================================ */
 let playing=false, tCur=0, exporting=false;
 const prm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-function setPlaying(p){
-  playing=p;
-  $('btnPlay').textContent = p? '❚❚ JEDA':'▶ PUTAR';
-}
+function setPlaying(p){ playing=p; $('btnPlay').textContent=p?'❚❚ JEDA':'▶ PUTAR'; }
 let last=performance.now();
 function tick(now){
   requestAnimationFrame(tick);
   const dt=Math.min(0.05,(now-last)/1000); last=now;
-  if(playing&&!exporting){
-    tCur+=dt;
-    if(tCur>=40){ tCur=40; setPlaying(false); }
-  }
+  if(playing&&!exporting){ tCur+=dt; if(tCur>=40){ tCur=40; setPlaying(false); } }
   renderFrame(tCur);
   $('time').textContent=tCur.toFixed(1)+'s / 40.0s';
 }
 
 /* ============================================================
-   EXPORT ENGINE — WebCodecs + mp4-muxer (deterministik)
+   EXPORT ENGINE — WebCodecs + mp4-muxer (mengikuti §11 ketat)
 ============================================================ */
-function codecFor(w,h,fps){
-  return { '1080x1920x30':'avc1.640028','1080x1920x60':'avc1.64002A',
-           '2160x3840x30':'avc1.640033','2160x3840x60':'avc1.640034' }[w+'x'+h+'x'+fps];
+function codecFor(W,fps){                                  // 11.3 — codec per resolusi
+  if(W<=1080) return 'avc1.640028';                        // High L4.0 (1080 @30/60)
+  return fps>=60 ? 'avc1.640034' : 'avc1.640033';          // 4K L5.2 / L5.1
 }
+function setStat(msg,cls){ const s=$('stat'); s.textContent=msg; s.className=cls||''; }
 async function startExport(){
   if(exporting) return;
-  const stat=$('stat'), bar=$('bar');
-  stat.classList.remove('err');
-  if(typeof VideoEncoder==='undefined'){
-    stat.classList.add('err');
-    stat.textContent='WEBCODECS TIDAK TERSEDIA — GUNAKAN CHROME / EDGE DESKTOP';
-    return;
+  setStat('MEMERIKSA KAPABILITAS ENCODER…','');
+  $('bar').style.width='0%';
+  /* 11.10 — feature detection */
+  if(typeof window.VideoEncoder==='undefined'){
+    setStat('WEBCODECS TIDAK TERSEDIA — GUNAKAN GOOGLE CHROME / EDGE DESKTOP','err'); return;
   }
+  let muxMod;
+  try{ muxMod=await import('mp4-muxer'); }
+  catch(e){ setStat('LIBRARY mp4-muxer GAGAL DIMUAT — PERIKSA KONEKSI CDN','err'); return; }
+  const { Muxer, ArrayBufferTarget }=muxMod;
+
   const W=+$('selRes').value, H=Math.round(W*16/9), fps=+$('selFps').value;
-  const cfg={ codec:codecFor(W,H,fps), width:W, height:H,
-    bitrate: W>=2160?60000000:24000000, framerate:fps };
-  let sup;
-  try{ sup=await VideoEncoder.isConfigSupported(cfg); }catch(e){ sup={supported:false}; }
-  if(!sup.supported){
-    stat.classList.add('err');
-    stat.textContent='KONFIGURASI H.264 TIDAK DIDUKUNG DEVICE INI — COBA CHROME/EDGE';
-    return;
-  }
-  exporting=true; setPlaying(false);
-  const btnDl=$('btnDl'), btnP=$('btnPlay');
-  btnDl.disabled=true; btnP.disabled=true; $('selRes').disabled=true; $('selFps').disabled=true;
-  const savedT=tCur;
-  let muxer,encoder,err=null;
+  const codec=codecFor(W,fps);
+  const bitrate=W>=2160?60000000:24000000;
+  /* 11.3 — isConfigSupported wajib */
+  let support;
   try{
+    support=await VideoEncoder.isConfigSupported({codec,width:W,height:H,framerate:fps,bitrate});
+  }catch(e){
+    setStat('GAGAL MENGUJI CODEC: '+e.message,'err'); return;
+  }
+  if(!support.supported){
+    setStat(`CODEC ${codec} ${W}×${H}@${fps}FPS TIDAK DIDUKUNG DEVICE INI`,'err'); return;
+  }
+
+  exporting=true; setPlaying(false);
+  const btnDl=$('btnDl'),btnP=$('btnPlay'),selR=$('selRes'),selF=$('selFps');
+  btnDl.disabled=true; btnP.disabled=true; selR.disabled=true; selF.disabled=true;
+  const savedT=tCur;
+  let encoder=null, muxer=null, encErr=null, failedFrame=-1;
+  const total=40*fps;
+  try{
+    /* 11.2 — canvas HARUS persis = config encoder */
+    renderer.setPixelRatio(1);
+    renderer.setSize(W,H,false);
+    setPipelineSize(W,H);
+    setStat(`EXPORT DIMULAI — ${W}×${H} @ ${fps}FPS (${total} FRAME)…`,'');
+
     muxer=new Muxer({ target:new ArrayBufferTarget(),
       video:{codec:'avc',width:W,height:H,frameRate:fps},
       fastStart:'in-memory', firstTimestampBehavior:'offset' });
     encoder=new VideoEncoder({
       output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta),
-      error:e=>{ err=e; }
+      error:e=>{ encErr=e; }
     });
-    encoder.configure(cfg);
-    setRenderSize(W,H);
-    const total=40*fps, t0=performance.now();
-    const frameDur=Math.round(1e6/fps);
+    encoder.configure({codec,width:W,height:H,bitrate,framerate:fps});
+
+    const frameDur=Math.round(1000000/fps);
+    const t0=performance.now();
     for(let f=0;f<total;f++){
-      if(err) throw err;
-      renderFrame(f/fps);
-      renderer.getContext().flush();
-      const vf=new VideoFrame(canvas,{timestamp:f*frameDur,duration:frameDur});
+      failedFrame=f;
+      if(encErr) throw encErr;
+      if(encoder.state==='closed'||encoder.state==='errored') throw new Error('encoder tertutup sebelum selesai');
+      renderFrame(f/fps);                                   // deterministik: seek + render
+      /* 11.4 — timestamp mikrodtk, monoton; 11.5 — frame sinkron dr canvas */
+      const vf=new VideoFrame(canvas,{timestamp:Math.round(f*1000000/fps),duration:frameDur});
       encoder.encode(vf,{keyFrame:(f%(fps*2))===0});
-      vf.close();
-      while(encoder.encodeQueueSize>6){ await raf(); if(err) throw err; }
-      if(f%5===0){
-        const done=(f+1)/total, el=(performance.now()-t0)/1000;
-        const eta=el/(f+1)*(total-f-1);
-        bar.style.width=(done*100).toFixed(1)+'%';
-        stat.textContent=`MERENDER ${f+1}/${total} · ${(done*100).toFixed(0)}% · ETA ±${Math.ceil(eta)}s`;
+      vf.close();                                           // 14 — hindari leak
+      /* 11.6 — backpressure */
+      while(encoder.encodeQueueSize>4){ await raf(); if(encErr) throw encErr; }
+      if((f+1)%240===0){ await encoder.flush(); }           // drain berkala utk export panjang
+      if(f%4===0){
+        const pct=((f+1)/total*100);
+        const el=(performance.now()-t0)/1000;
+        const eta=Math.ceil(el/(f+1)*(total-f-1));
+        $('bar').style.width=pct.toFixed(1)+'%';
+        setStat(`FRAME ${f+1}/${total} · ${pct.toFixed(0)}% · ETA ±${eta}s — EXPORT LEBIH LAMA DARI 40 DETIK ITU NORMAL`,'');
         await raf();
       }
     }
-    await encoder.flush();
-    encoder.close();
+    failedFrame=-1;
+    setStat('FLUSHING ENCODER…','');
+    await encoder.flush();                                  // 11.7 — flush SEBELUM finalize
+    encoder.close(); encoder=null;
     muxer.finalize();
-    const blob=new Blob([muxer.target.buffer],{type:'video/mp4'});
+    const buf=muxer.target.buffer;
+    if(!buf||buf.byteLength===0) throw new Error('muxer menghasilkan buffer 0 byte');
+    const blob=new Blob([buf],{type:'video/mp4'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url; a.download='AXION-Neuralis-Teaser-9x16.mp4';
     document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),4000);
-    stat.textContent=`SELESAI — ${W}×${H} @ ${fps}FPS · AXION-Neuralis-Teaser-9x16.mp4 DIUNDUH`;
-    bar.style.width='100%';
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+    $('bar').style.width='100%';
+    setStat(`SELESAI — ${(blob.size/1048576).toFixed(1)} MB · AXION-Neuralis-Teaser-9x16.mp4 DIUNDUH`,'ok');
   }catch(e){
-    try{encoder&&encoder.state!=='closed'&&encoder.close();}catch(_){}
-    stat.classList.add('err');
-    stat.textContent='EXPORT GAGAL: '+(e&&e.message?e.message:e);
+    /* 11.8 — error spesifik + lokasi frame */
+    const where=failedFrame>=0?` — GAGAL SAAT ENCODE FRAME ${failedFrame+1}/${total}`:'';
+    const msg=e&&e.message?e.message:String(e);
+    let hint='';
+    if(/codec/i.test(msg)) hint=' (codec tidak didukung browser ini)';
+    setStat('EXPORT GAGAL'+where+': '+msg+hint,'err');
+    try{ if(encoder&&encoder.state!=='closed') encoder.close(); }catch(_){}
   }finally{
     exporting=false;
     layoutPreview(); renderFrame(savedT);
-    btnDl.disabled=false; btnP.disabled=false; $('selRes').disabled=false; $('selFps').disabled=false;
+    btnDl.disabled=false; btnP.disabled=false; selR.disabled=false; selF.disabled=false;
   }
 }
 
@@ -965,12 +1014,19 @@ async function startExport(){
 ============================================================ */
 function layoutPreview(){
   const box=$('stage').getBoundingClientRect();
-  const h=Math.min(1600,Math.max(480,Math.round(box.height*Math.min(devicePixelRatio||1,2))));
-  setRenderSize(Math.round(h*9/16),h);
+  const pr=Math.min(window.devicePixelRatio||1,2);          // 7.3 — HiDPI
+  renderer.setPixelRatio(pr);
+  const bufH=Math.min(1920,Math.max(480,Math.round(box.height*pr)));
+  const bufW=Math.round(bufH*9/16);
+  renderer.setSize(bufW/pr,bufH/pr,false);                  // drawing buffer = bufW×bufH
+  setPipelineSize(bufW,bufH);
 }
 window.addEventListener('resize',()=>{ if(!exporting) layoutPreview(); });
 window.addEventListener('pagehide',()=>{
-  try{ renderer.dispose(); [rtScene,rtH1,rtH2,rtH3,rtQ1,rtQ2].forEach(r=>r.dispose()); }catch(e){}
+  try{
+    renderer.dispose();
+    [rtScene,rtH1,rtH2,rtH3,rtQ1,rtQ2,rtComp].forEach(r=>r.dispose());
+  }catch(e){}
 });
 
 async function boot(){
@@ -989,7 +1045,7 @@ async function boot(){
     renderFrame(0);
     requestAnimationFrame(t=>{ last=t; tick(t); });
     $('boot').classList.add('off');
-    $('stat').textContent='SIAP — 40.00s · 9:16 · H.264 · TANPA AUDIO';
+    setStat('SIAP — 40.00s · 9:16 · H.264 · TANPA AUDIO','ok');
     if(!prm){ tCur=0; setPlaying(true); }
   }catch(e){
     document.querySelector('#boot .s').textContent='ERROR: '+e.message;
