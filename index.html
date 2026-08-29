@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>AXION NEURALIS — ONE SIGNAL · Cinematic Teaser 9:16 · v2</title>
+<title>AXION NEURALIS — ONE SIGNAL · Background Render Pipeline</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/unbounded@5/300.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/unbounded@5/400.css">
@@ -13,40 +13,75 @@
 
 <style>
   :root{ --bg:#050608; --panel:#0a0d12; --line:#1c2330; --line2:#28313f;
-         --txt:#c9d2df; --dim:#5d6a7d; --acc:#7de3ff; --gold:#ffd489; --err:#ff7b6b; }
+         --txt:#c9d2df; --dim:#5d6a7d; --acc:#7de3ff; --gold:#ffd489; --err:#ff7b6b; --ok:#8fe6b0; }
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{background:var(--bg);color:var(--txt);font-family:"IBM Plex Mono",monospace}
-  body{min-height:100vh;display:flex;flex-direction:column;overflow-x:hidden;
+  body{min-height:100vh;display:flex;flex-direction:column;
        background:radial-gradient(120% 90% at 50% 0%, #0a0e15 0%, #050608 55%, #030405 100%)}
+  /* canvas render target — sepenuhnya di belakang layar, hanya buffer-nya yang dipakai */
+  #view{position:fixed;top:0;left:0;width:2px;height:2px;opacity:0;pointer-events:none;z-index:-1}
+
   header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;
-         padding:14px 22px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.18em;color:var(--dim)}
+         padding:16px 26px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.18em;color:var(--dim)}
   header b{color:var(--txt);font-weight:500}
-  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:18px 12px 26px}
-  #stage{position:relative;height:min(88vh,150vw);aspect-ratio:9/16;background:#000;
-         border:1px solid var(--line);box-shadow:0 0 0 1px #000,0 30px 80px -30px rgba(0,0,0,.9)}
-  #view{width:100%;height:100%;display:block}
-  .corner{position:absolute;width:14px;height:14px;border:1px solid rgba(125,227,255,.55);pointer-events:none}
-  .c1{top:-6px;left:-6px;border-right:0;border-bottom:0}
-  .c2{top:-6px;right:-6px;border-left:0;border-bottom:0}
-  .c3{bottom:-6px;left:-6px;border-right:0;border-top:0}
-  .c4{bottom:-6px;right:-6px;border-left:0;border-top:0}
-  #stage .tag{position:absolute;top:-22px;left:0;font-size:9px;letter-spacing:.22em;color:var(--dim)}
-  #stage .tag2{position:absolute;top:-22px;right:0;font-size:9px;letter-spacing:.22em;color:#8a5a5a}
-  #controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px;width:min(96vw,620px)}
+  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--err);margin-right:8px;vertical-align:1px}
+  .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .dot.run{background:var(--acc);box-shadow:0 0 8px var(--acc);animation:bl 1s steps(2) infinite}
+
+  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 16px 30px;gap:0}
+  #console{width:min(96vw,760px);border:1px solid var(--line);background:rgba(8,11,16,.72);position:relative}
+  #console::before,#console::after{content:"";position:absolute;width:14px;height:14px;border:1px solid rgba(125,227,255,.5)}
+  #console::before{top:-6px;left:-6px;border-right:0;border-bottom:0}
+  #console::after{bottom:-6px;right:-6px;border-left:0;border-top:0}
+
+  .row{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);
+       font-size:9px;letter-spacing:.2em;color:var(--dim);flex-wrap:wrap;gap:8px}
+  .row .cfg{color:#7b8698}
+
+  #phase{padding:26px 18px 6px;font-family:"Unbounded";font-weight:700;font-size:clamp(18px,3.4vw,27px);
+         letter-spacing:.04em;color:#fff;line-height:1.25;min-height:64px}
+  #phase .dim{color:var(--dim);font-weight:300}
+  #sub{padding:0 18px 20px;font-size:9px;letter-spacing:.24em;color:var(--dim)}
+
+  #barWrap{height:34px;margin:0 18px;border:1px solid var(--line2);position:relative;background:#070a0f;overflow:hidden}
+  #barFill{position:absolute;inset:0;width:0%;background:linear-gradient(90deg,#17515f,#2c8ca8 60%,var(--acc));transition:width .12s linear}
+  #barTicks{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(5,6,8,.9) calc(10% - 1px) 10%)}
+  #barPct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+          font-size:11px;letter-spacing:.24em;color:#eaf6ff;text-shadow:0 0 8px #000}
+
+  #strip{display:flex;gap:3px;margin:14px 18px 0}
+  .seg{flex-grow:1;border:1px solid var(--line);padding:7px 4px 6px;text-align:center;font-size:8px;letter-spacing:.14em;color:var(--dim);
+       background:#070a0f;transition:all .25s;white-space:nowrap;overflow:hidden}
+  .seg small{display:block;font-size:7px;opacity:.6;margin-top:3px;letter-spacing:.08em}
+  .seg.done{border-color:#1f3d33;color:#4f8f74;background:#08120e}
+  .seg.active{border-color:var(--acc);color:#eaffff;background:#0a161c;box-shadow:inset 0 0 14px rgba(125,227,255,.16)}
+
+  #stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);margin-top:18px}
+  .cell{padding:12px 14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .cell:nth-child(4n){border-right:0}
+  .cell:nth-last-child(-n+4){border-bottom:0}
+  .cell b{display:block;font-size:8px;letter-spacing:.22em;color:var(--dim);font-weight:400;margin-bottom:7px}
+  .cell span{font-size:13px;color:#dfe8f4;letter-spacing:.06em}
+  .cell span.hot{color:var(--acc)}
+
+  #log{height:132px;overflow-y:auto;padding:12px 18px;border-top:1px solid var(--line);
+       font-size:9.5px;line-height:1.85;color:#6d7a8d;background:#06080c}
+  #log .t{color:#3d4656;margin-right:10px}
+  #log .ok{color:var(--ok)} #log .warn{color:var(--gold)} #log .err{color:var(--err)} #log .hi{color:#aebdd2}
+
+  #actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;padding:16px;border-top:1px solid var(--line)}
   button,select{font-family:inherit;font-size:10px;letter-spacing:.14em;color:var(--txt);
-    background:var(--panel);border:1px solid var(--line2);padding:9px 14px;cursor:pointer;border-radius:2px;
+    background:var(--panel);border:1px solid var(--line2);padding:10px 16px;cursor:pointer;border-radius:2px;
     transition:border-color .2s,color .2s,background .2s}
-  button:hover:not(:disabled),select:hover{border-color:var(--acc);color:#fff}
-  button:disabled{opacity:.4;cursor:default}
-  #btnDl{border-color:#5a4a22;color:var(--gold)}
-  #btnDl:hover:not(:disabled){border-color:var(--gold);background:#141006}
+  button:hover:not(:disabled),select:hover:not(:disabled){border-color:var(--acc);color:#fff}
+  button:disabled,select:disabled{opacity:.35;cursor:default}
+  #btnSave{border-color:#5a4a22;color:var(--gold)}
+  #btnSave:hover{border-color:var(--gold);background:#141006}
+  #btnCancel{border-color:#4a2420;color:#d98a80}
   .grp{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.16em;color:var(--dim)}
-  #time{font-size:10px;color:var(--dim);letter-spacing:.12em;min-width:110px;text-align:center}
-  #prog{width:min(96vw,620px);height:2px;background:#10151d;position:relative;overflow:hidden}
-  #bar{position:absolute;inset:0;width:0%;background:linear-gradient(90deg,#2c8ca8,var(--acc));transition:width .15s linear}
-  #stat{font-size:9px;letter-spacing:.16em;color:var(--dim);text-align:center;min-height:14px;max-width:min(96vw,620px)}
-  #stat.err{color:var(--err)}
-  #stat.ok{color:var(--acc)}
+  .hidden{display:none!important}
+
+  #note{width:min(96vw,760px);text-align:center;margin-top:14px;font-size:8.5px;letter-spacing:.22em;color:#3f4858}
   #boot{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;gap:14px;
         align-items:center;justify-content:center;z-index:50;transition:opacity .6s}
   #boot.off{opacity:0;pointer-events:none}
@@ -54,6 +89,7 @@
   #boot .s{font-size:9px;letter-spacing:.3em;color:var(--dim)}
   .blink{animation:bl 1.1s steps(2) infinite}
   @keyframes bl{50%{opacity:.25}}
+  @media (max-width:560px){ #stats{grid-template-columns:repeat(2,1fr)} .cell:nth-child(4n){border-right:1px solid var(--line)} .cell:nth-child(2n){border-right:0} }
 </style>
 
 <script type="importmap">
@@ -68,33 +104,57 @@
 </head>
 <body>
 
+<canvas id="view"></canvas>
+
 <header>
-  <span><b>AXION NEURALIS</b> · PRODUCTION TEASER · v2</span>
+  <span><span id="dot" class="dot"></span><b>AXION NEURALIS</b> · BACKGROUND RENDER PIPELINE</span>
   <span>9:16 · 40.00s · H.264 HIGH · NO-AUDIO</span>
 </header>
 
 <main>
-  <div id="stage">
-    <span class="tag">SAFE ZONE 9:16 · TITLES POST-LENS</span><span class="tag2">● REC DETERMINISTIC</span>
-    <canvas id="view"></canvas>
-    <i class="corner c1"></i><i class="corner c2"></i><i class="corner c3"></i><i class="corner c4"></i>
+  <div id="console">
+    <div class="row">
+      <span>PRODUCTION // ONE SIGNAL — SEMUA PROSES BERJALAN DI LATAR BELAKANG</span>
+      <span class="cfg" id="cfgLabel">—</span>
+    </div>
+
+    <div id="phase"><span class="dim">STANDBY</span></div>
+    <div id="sub">MENUNGGU PIPELINE…</div>
+
+    <div id="barWrap"><div id="barFill"></div><div id="barTicks"></div><div id="barPct">0%</div></div>
+
+    <div id="strip"></div>
+
+    <div id="stats">
+      <div class="cell"><b>FRAME</b><span id="stFrame">—</span></div>
+      <div class="cell"><b>TIMECODE</b><span id="stTime">—</span></div>
+      <div class="cell"><b>ANTREAN ENCODE</b><span id="stQueue">—</span></div>
+      <div class="cell"><b>KECEPATAN</b><span id="stSpeed">—</span></div>
+      <div class="cell"><b>ELAPSED</b><span id="stElapsed">—</span></div>
+      <div class="cell"><b>ETA</b><span id="stEta">—</span></div>
+      <div class="cell"><b>OUTPUT</b><span id="stOut">—</span></div>
+      <div class="cell"><b>STATUS</b><span class="hot" id="stState">IDLE</span></div>
+    </div>
+
+    <div id="log"></div>
+
+    <div id="actions">
+      <span class="grp">RESOLUSI
+        <select id="selRes"><option value="1080" selected>1080×1920</option><option value="2160">2160×3840 · 4K</option></select>
+      </span>
+      <span class="grp">FPS
+        <select id="selFps"><option value="30" selected>30</option><option value="60">60</option></select>
+      </span>
+      <button id="btnStart" class="hidden">▶ MULAI PRODUKSI</button>
+      <button id="btnCancel" class="hidden">✕ BATALKAN</button>
+      <button id="btnSave" class="hidden">⬇ SIMPAN MP4</button>
+      <button id="btnAgain" class="hidden">↻ RENDER ULANG</button>
+    </div>
   </div>
-  <div id="controls">
-    <button id="btnPlay">▶ PUTAR</button>
-    <div id="time">0.0s / 40.0s</div>
-    <span class="grp">RESOLUSI
-      <select id="selRes"><option value="1080" selected>1080×1920</option><option value="2160">2160×3840 · 4K</option></select>
-    </span>
-    <span class="grp">FPS
-      <select id="selFps"><option value="30" selected>30</option><option value="60">60</option></select>
-    </span>
-    <button id="btnDl">⬇ DOWNLOAD MP4</button>
-  </div>
-  <div id="prog"><div id="bar"></div></div>
-  <div id="stat">MENYIAPKAN SISTEM…</div>
+  <div id="note">TAB BOLEH DIPINDAHKAN / DIMINIMIZE — WORKER TIMER MENJAGA RENDER TETAP BERJALAN · HASIL DIUNDUH OTOMATIS SAAT SELESAI</div>
 </main>
 
-<div id="boot"><div class="k">AXION NEURALIS</div><div class="s blink">// INITIALIZING SIGNAL…</div></div>
+<div id="boot"><div class="k">AXION NEURALIS</div><div class="s blink">// INITIALIZING BACKGROUND PIPELINE…</div></div>
 
 <script type="module">
 import * as THREE from 'three';
@@ -105,15 +165,27 @@ import { gsap } from 'gsap';
 ============================================================ */
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
-const raf=()=>new Promise(r=>requestAnimationFrame(r));
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const rnd=mulberry32(20240917);
 const gauss=()=> (rnd()+rnd()+rnd()-1.5)*0.816;
 function sphDir(out){const u=rnd()*2-1,ph=rnd()*Math.PI*2,s=Math.sqrt(1-u*u);out[0]=s*Math.cos(ph);out[1]=u;out[2]=s*Math.sin(ph);return out;}
 const n1=(t,f,p)=>Math.sin(t*f+p)*0.55+Math.sin(t*f*1.93+p*2.7)*0.3+Math.sin(t*f*3.71+p*5.1)*0.15;
 
+/* Worker ticker — menjaga loop export tetap hidup walau tab di latar belakang */
+let ticker=null, pendingTick=null;
+try{
+  const src='var n=0;setInterval(function(){postMessage(n++)},1000/60);';
+  ticker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
+  ticker.onmessage=()=>{ if(pendingTick){ const p=pendingTick; pendingTick=null; p(); } };
+}catch(e){ ticker=null; }
+function nextTick(){
+  return new Promise(res=>{
+    if(ticker){ pendingTick=res; } else { requestAnimationFrame(res); }
+  });
+}
+
 /* ============================================================
-   STATE — seluruh animasi 40s (deterministik, di-seek per frame)
+   STATE — seluruh animasi 40s (deterministik)
 ============================================================ */
 const S={
   t:0,
@@ -131,27 +203,28 @@ const S={
 };
 
 /* ============================================================
-   RENDERER + RENDER TARGETS
+   RENDERER + RENDER TARGETS (canvas tersembunyi)
 ============================================================ */
 const canvas=$('view');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,stencil:false,
-  preserveDrawingBuffer:true,powerPreference:'high-performance'});   // 11.5 — buffer tetap tersedia utk VideoFrame
+  preserveDrawingBuffer:true,powerPreference:'high-performance'});
 renderer.setClearColor(0x000000,1);
+renderer.setPixelRatio(1);
 renderer.outputColorSpace=THREE.LinearSRGBColorSpace;
 renderer.toneMapping=THREE.NoToneMapping;
 const MAX_ANISO=renderer.capabilities.getMaxAnisotropy();
 
-let curW=540,curH=960;
+let curW=1080,curH=1920;
 function makeRT(w,h,withDepth){
   const rt=new THREE.WebGLRenderTarget(w,h,{type:THREE.HalfFloatType,
     minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:!!withDepth});
   if(withDepth){ rt.depthTexture=new THREE.DepthTexture(w,h); rt.depthTexture.type=THREE.UnsignedIntType; }
   return rt;
 }
-let rtScene=makeRT(curW,curH,true),                       // 3D HDR + depth
+let rtScene=makeRT(curW,curH,true),
     rtH1=makeRT(curW>>1,curH>>1,false), rtH2=makeRT(curW>>1,curH>>1,false), rtH3=makeRT(curW>>1,curH>>1,false),
     rtQ1=makeRT(curW>>2,curH>>2,false), rtQ2=makeRT(curW>>2,curH>>2,false),
-    rtComp=makeRT(curW,curH,false);                       // 3D graded + teks tajam
+    rtComp=makeRT(curW,curH,false);
 
 const passScene=new THREE.Scene();
 const passCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
@@ -160,7 +233,6 @@ passScene.add(quad);
 function runPass(mat,rt){ quad.material=mat; renderer.setRenderTarget(rt); renderer.render(passScene,passCam); }
 const QVERT=`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`;
 
-/* ---------- pass: bright ---------- */
 const matBright=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
   uniform sampler2D tSrc; uniform float uTh; varying vec2 vUv;
   void main(){ vec3 c=texture2D(tSrc,vUv).rgb;
@@ -168,7 +240,6 @@ const matBright=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
     gl_FragColor=vec4(c*smoothstep(uTh,uTh+0.5,l),1.0); }`,
   uniforms:{tSrc:{value:null},uTh:{value:0.85}}});
 
-/* ---------- pass: separable gaussian ---------- */
 const matBlur=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
   uniform sampler2D tSrc; uniform vec2 uDir,uTexel; uniform float uRad; varying vec2 vUv;
   void main(){ vec2 o=uDir*uTexel*uRad;
@@ -180,7 +251,6 @@ const matBlur=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
     gl_FragColor=vec4(c,1.0); }`,
   uniforms:{tSrc:{value:null},uDir:{value:new THREE.Vector2()},uTexel:{value:new THREE.Vector2()},uRad:{value:1}}});
 
-/* ---------- pass: composite 3D (DOF + bloom) → rtComp ---------- */
 const matComp=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
   uniform sampler2D tScene,tDof,tBloom,tDepth;
   uniform float uNear,uFar,uFocus,uAp;
@@ -197,7 +267,6 @@ const matComp=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
   uniforms:{ tScene:{value:null},tDof:{value:null},tBloom:{value:null},tDepth:{value:null},
     uNear:{value:0.4},uFar:{value:60},uFocus:{value:8.5},uAp:{value:0.5} }});
 
-/* ---------- pass: final grade (SETELAH teks) — grain/CA/vignette/halation/ACES ---------- */
 const matGrade=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
   uniform sampler2D tComp,tWide;
   uniform vec2 uRes;
@@ -241,12 +310,11 @@ function setPipelineSize(w,h){
 }
 
 /* ============================================================
-   SCENE 3D
+   SCENE 3D (draw calls ≤ 6: points, lines, panels, emblem, core)
 ============================================================ */
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(55,9/16,0.4,60);
 
-/* ---------- particle morph — 1 draw call ---------- */
 const N=45000;
 function buildShapes(){
   const pos=new Float32Array(N*3), orb=new Float32Array(N*3), brain=new Float32Array(N*3),
@@ -338,7 +406,7 @@ const pUniforms={
   uTime:{value:0}, uPix:{value:1000}, uSize:{value:0.024}, uJitter:{value:0.5},
   uOrbit:{value:0}, uOpacity:{value:0}, uIntensity:{value:1.5}
 };
-const pointsMat=new THREE.ShaderMaterial({
+const points=new THREE.Points(buildShapes(),new THREE.ShaderMaterial({
   uniforms:pUniforms, transparent:true, depthWrite:true, depthTest:true,
   blending:THREE.AdditiveBlending,
   vertexShader:`
@@ -399,12 +467,10 @@ const pointsMat=new THREE.ShaderMaterial({
       float a=exp(-r2*3.2)*(1.0-r2);
       gl_FragColor=vec4(vCol*uIntensity, a*vA*uOpacity);
     }`
-});
-const points=new THREE.Points(buildShapes(),pointsMat);
+}));
 points.frustumCulled=false; points.renderOrder=0;
 scene.add(points);
 
-/* ---------- synapse + beams — 1 draw call ---------- */
 function buildLines(){
   const nodes=[];
   for(let i=0;i<90;i++){ const d=[0,0,0]; sphDir(d); nodes.push([d[0]*2.55,d[1]*2.55*1.32,d[2]*2.55]); }
@@ -475,7 +541,6 @@ const lines=new THREE.LineSegments(lineData.geo,new THREE.ShaderMaterial({
 lines.frustumCulled=false; lines.renderOrder=1; lines.visible=false;
 scene.add(lines);
 
-/* ---------- target panels — 1 draw call (instanced) ---------- */
 const panelGeo=new THREE.PlaneGeometry(0.30,0.38);
 panelGeo.setAttribute('aPhase',new THREE.InstancedBufferAttribute(new Float32Array(lineData.phases),1));
 const panelMat=new THREE.ShaderMaterial({
@@ -511,7 +576,6 @@ const panels=new THREE.InstancedMesh(panelGeo,panelMat,64);
 panels.frustumCulled=false; panels.renderOrder=2; panels.visible=false;
 scene.add(panels);
 
-/* ---------- emblem + core glow ---------- */
 function glowTexture(){
   const c=document.createElement('canvas'); c.width=c.height=256;
   const x=c.getContext('2d');
@@ -549,27 +613,25 @@ function buildEmblem(){
 }
 
 /* ============================================================
-   TEXT LAYER — scene terpisah, di-composite SETELAH DOF+bloom,
-   SEBELUM grade. Tekstur supersampled 2048px + anisotropy max.
+   TEXT LAYER — tajam, setelah DOF+bloom, sebelum grade
 ============================================================ */
 const textScene=new THREE.Scene();
 const HW=1.0, HH=16/9;
 const textCam=new THREE.OrthographicCamera(-HW,HW,HH,-HH,0.1,10);
 textCam.position.z=5;
-const cardGeo=new THREE.PlaneGeometry(1.72,1.075);   // rasio 1024×640
+const cardGeo=new THREE.PlaneGeometry(1.72,1.075);
 
 function drawCard(cfg){
-  const LW=1024, LH=640, SS=2;                          // 2048×1280 — lebar tekstur dlm rentang 2048–4096
+  const LW=1024, LH=640, SS=2;
   const c=document.createElement('canvas');
   c.width=LW*SS; c.height=LH*SS;
   const x=c.getContext('2d');
-  x.scale(SS,SS);                                       // font digambar pd resolusi penuh
+  x.scale(SS,SS);
   x.clearRect(0,0,LW,LH);
   x.textAlign='center'; x.textBaseline='middle';
   const fit=(text,fam,weight,maxW,px)=>{
     do{ x.font=`${weight} ${px}px "${fam}"`; if(x.measureText(text).width<=maxW) break; px-=4; }while(px>26);
     return px; };
-  const sharp=(text,px,y)=>{ x.shadowBlur=0; x.font=x.font; x.fillText(text,512,y); };
   if(cfg.lockup){
     const p1=fit('AXION','Unbounded',700,880,168);
     x.font=`700 ${p1}px "Unbounded"`;
@@ -667,12 +729,11 @@ function buildCards(){
 }
 
 /* ============================================================
-   GSAP TIMELINE — 40.00s, deterministik
+   GSAP TIMELINE — 40.00s deterministik
 ============================================================ */
 const TL=gsap.timeline({paused:true});
 function buildTimeline(){
   TL.set(S,{ringR:0},0);
-  /* SCENE 0 · GENESIS */
   TL.to(S,{coreOp:0.9,coreScale:0.34,corePulse:1,duration:0.9,ease:'power2.out'},0.15);
   TL.to(S,{pOp:1,duration:0.7,ease:'power1.out'},0.95);
   TL.to(S,{birth:1,duration:2.6,ease:'expo.out'},1.0);
@@ -690,7 +751,6 @@ function buildTimeline(){
   TL.to(S,{imp:0,duration:1.0,ease:'expo.out'},6.0);
   TL.to(S,{intensity:1.5,ca:1.0,duration:0.9,ease:'power2.out'},6.05);
   TL.to(S,{coreOp:0.35,coreScale:0.5,duration:1.0},6.0);
-  /* SCENE 1 · ACCOUNT */
   TL.to(S,{tintR:0.96,tintG:1.03,tintB:1.06,duration:1.2},6.2);
   TL.to(S,{camA:0.85,camR:4.6,duration:3.4,ease:'power2.inOut'},6.0);
   TL.to(S,{camY:0.5,duration:3.0,ease:'power2.inOut'},6.2);
@@ -705,7 +765,6 @@ function buildTimeline(){
   TL.to(S,{w1:0,w2:1,duration:0.9,ease:'power2.inOut'},13.0);
   TL.to(S,{disperse:0,duration:0.9,ease:'power2.out'},13.25);
   TL.to(S,{tintR:1.0,tintG:0.97,tintB:1.06,duration:1.0},13.0);
-  /* SCENE 2 · AI */
   TL.to(S,{lineOp0:0.9,duration:1.0},13.4);
   TL.to(S,{lsr:0.55,lsg:0.4,lsb:1.0,duration:1.2},13.4);
   TL.to(S,{lineSpeed:0.8,duration:1.5},13.5);
@@ -725,7 +784,6 @@ function buildTimeline(){
   TL.to(S,{w2:0,w3:1,duration:0.9,ease:'power2.inOut'},20.1);
   TL.to(S,{explode:0,duration:1.0,ease:'power2.out'},20.15);
   TL.to(S,{intensity:1.5,ca:1.0,duration:1.0},19.9);
-  /* SCENE 3 · ADS */
   TL.to(S,{tintR:1.05,tintG:0.97,tintB:1.0,duration:1.0},20.4);
   TL.to(S,{lineOp1:1,duration:1.0,ease:'power2.out'},20.6);
   TL.to(S,{panelsOp:1,duration:1.2,ease:'power2.out'},21.0);
@@ -741,7 +799,6 @@ function buildTimeline(){
   TL.to(S,{w3:0,w4:1,duration:0.8,ease:'power2.inOut'},27.2);
   TL.to(S,{compress:1,duration:0.7,ease:'power3.in'},27.3);
   TL.to(S,{suck:0,duration:0.6},27.9);
-  /* SCENE 4 · COIN */
   TL.to(S,{tintR:1.04,tintG:1.0,tintB:0.93,duration:1.0},27.6);
   TL.to(S,{camR:1.6,camY:0.15,duration:1.2,ease:'power3.in'},26.9);
   TL.to(S,{fov:46,duration:1.2},26.9);
@@ -765,7 +822,6 @@ function buildTimeline(){
   TL.to(S,{w4:0,duration:1.2,ease:'power2.inOut'},34.0);
   TL.to(S,{finale:1,duration:1.8,ease:'power2.inOut'},33.8);
   TL.to(S,{tintR:1,tintG:1,tintB:1,duration:1.2},34.2);
-  /* SCENE 5 · FINALE */
   TL.to(S,{coreOp:1,coreScale:1.05,duration:1.8,ease:'power2.out'},34.2);
   TL.to(S,{finOp:1,duration:1.6,ease:'power2.out'},35.2);
   TL.to(S,{finSweep:1.35,duration:2.2,ease:'power2.inOut'},35.3);
@@ -778,7 +834,7 @@ function buildTimeline(){
 }
 
 /* ============================================================
-   UPDATE + RENDER — 3D → DOF → bloom → teks tajam → grade
+   RENDER FRAME (deterministik)
 ============================================================ */
 const uwArr=pUniforms.uW.value;
 function updateScene(){
@@ -791,7 +847,6 @@ function updateScene(){
   camera.lookAt(S.tx+nx*0.35, S.ty+ny*0.35, S.tz);
   camera.rotation.z += S.roll + nr*0.0035*(S.drift/0.06);
   pUniforms.uPix.value = curH/(2*Math.tan(camera.fov*Math.PI/360));
-
   uwArr[0]=S.w0; uwArr[1]=S.w1; uwArr[2]=S.w2; uwArr[3]=S.w3; uwArr[4]=S.w4;
   pUniforms.uFinale.value=S.finale; pUniforms.uBirth.value=S.birth; pUniforms.uImp.value=S.imp;
   pUniforms.uDisperse.value=S.disperse; pUniforms.uExplode.value=S.explode; pUniforms.uSuck.value=S.suck;
@@ -799,25 +854,18 @@ function updateScene(){
   pUniforms.uRingR.value=S.ringR; pUniforms.uRingA.value=S.ringA;
   pUniforms.uTime.value=tt; pUniforms.uJitter.value=S.jitter;
   pUniforms.uOrbit.value=tt*0.24; pUniforms.uOpacity.value=S.pOp; pUniforms.uIntensity.value=S.intensity;
-
   points.rotation.y=S.coinRot;
-
   lines.visible=(S.lineOp0+S.lineOp1)>0.002;
   lUniforms.uTime.value=tt; lUniforms.uOp0.value=S.lineOp0; lUniforms.uOp1.value=S.lineOp1;
   lUniforms.uSpeed.value=S.lineSpeed;
   lUniforms.uColSyn.value.setRGB(S.lsr,S.lsg,S.lsb);
-
   panels.visible=S.panelsOp>0.002;
   panelMat.uniforms.uTime.value=tt; panelMat.uniforms.uOp.value=S.panelsOp;
-
   core.visible=S.coreOp>0.002;
   const cs=S.coreScale*2.2*(1+S.corePulse*0.3*Math.sin(tt*7.0));
-  core.scale.set(cs,cs,1);
-  core.material.opacity=S.coreOp;
-
+  core.scale.set(cs,cs,1); core.material.opacity=S.coreOp;
   emblem.visible=S.emblemOp>0.002;
   emblem.material.opacity=S.emblemOp; emblem.rotation.y=S.coinRot;
-
   const cardState=[
     ['intro',S.introOp,S.introOp,S.introGlitch,-1],
     ['acc',S.accOp,S.accOp,0,-1],
@@ -836,7 +884,6 @@ function updateScene(){
       u.uOpacity.value=op; u.uReveal.value=rev; u.uGlitch.value=gl; u.uSweep.value=sw; u.uTime.value=tt;
     }
   }
-
   matComp.uniforms.uFocus.value=S.focus; matComp.uniforms.uAp.value=S.ap;
   const g=matGrade.uniforms;
   g.uTime.value=tt; g.uGrain.value=S.grain; g.uCA.value=0.0022*S.ca;
@@ -846,106 +893,130 @@ function renderFrame(t){
   TL.seek(t,false);
   S.t=t;
   updateScene();
-  // 1) scene 3D → rtScene (+depth)
   renderer.setRenderTarget(rtScene); renderer.render(scene,camera);
-  // 2) DOF blur (half res)
   matBlur.uniforms.uRad.value=2.0;
   matBlur.uniforms.tSrc.value=rtScene.texture; matBlur.uniforms.uDir.value.set(1,0);
   matBlur.uniforms.uTexel.value.set(1/curW,1/curH); runPass(matBlur,rtH2);
   matBlur.uniforms.uRad.value=2.8;
   matBlur.uniforms.tSrc.value=rtH2.texture; matBlur.uniforms.uDir.value.set(0,1);
   matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtH3);
-  // 3) bloom half
   matBright.uniforms.tSrc.value=rtScene.texture; runPass(matBright,rtH1);
   matBlur.uniforms.uRad.value=1.4;
   matBlur.uniforms.tSrc.value=rtH1.texture; matBlur.uniforms.uDir.value.set(1,0);
   matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtH2);
   matBlur.uniforms.tSrc.value=rtH2.texture; matBlur.uniforms.uDir.value.set(0,1); runPass(matBlur,rtH1);
-  // 4) bloom wide (quarter) utk halation
   matBlur.uniforms.uRad.value=2.5;
   matBlur.uniforms.tSrc.value=rtH1.texture; matBlur.uniforms.uDir.value.set(1,0);
   matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtQ1);
   matBlur.uniforms.tSrc.value=rtQ1.texture; matBlur.uniforms.uDir.value.set(0,1);
   matBlur.uniforms.uTexel.value.set(4/curW,4/curH); runPass(matBlur,rtQ2);
-  // 5) composite 3D (DOF+bloom) → rtComp
   matComp.uniforms.tScene.value=rtScene.texture;
   matComp.uniforms.tDof.value=rtH3.texture;
   matComp.uniforms.tBloom.value=rtH1.texture;
   matComp.uniforms.tDepth.value=rtScene.depthTexture;
   runPass(matComp,rtComp);
-  // 6) TEXT LAYER — digambar tajam di atas rtComp (TIDAK kena DOF/bloom)
   renderer.setRenderTarget(rtComp);
   renderer.autoClearColor=false;
   renderer.render(textScene,textCam);
   renderer.autoClearColor=true;
-  // 7) final grade (grain/CA/vignette/halation/ACES) → layar
   matGrade.uniforms.tComp.value=rtComp.texture;
   matGrade.uniforms.tWide.value=rtQ2.texture;
   renderer.setRenderTarget(null); runPass(matGrade,null);
 }
 
 /* ============================================================
-   PLAYER
+   CONSOLE UI — hanya proses yang ditampilkan
 ============================================================ */
-let playing=false, tCur=0, exporting=false;
-const prm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
-function setPlaying(p){ playing=p; $('btnPlay').textContent=p?'❚❚ JEDA':'▶ PUTAR'; }
-let last=performance.now();
-function tick(now){
-  requestAnimationFrame(tick);
-  const dt=Math.min(0.05,(now-last)/1000); last=now;
-  if(playing&&!exporting){ tCur+=dt; if(tCur>=40){ tCur=40; setPlaying(false); } }
-  renderFrame(tCur);
-  $('time').textContent=tCur.toFixed(1)+'s / 40.0s';
+const SCENES=[
+  {name:'GENESIS — AXION NEURALIS', dur:6},
+  {name:'AXION ACCOUNT',            dur:7},
+  {name:'AXION AI',                 dur:7},
+  {name:'AXION ADS',                dur:7},
+  {name:'AXION COIN',               dur:7},
+  {name:'FINALE — ONE SIGNAL',      dur:6},
+];
+function sceneAt(t){ return t<6?0: t<13?1: t<20?2: t<27?3: t<34?4:5; }
+const stripEl=$('strip'); const segEls=[];
+SCENES.forEach((sc,i)=>{
+  const d=document.createElement('div');
+  d.className='seg'; d.style.flexGrow=sc.dur;
+  d.innerHTML=`S${i}<small>${sc.name.split(' — ')[0]}</small>`;
+  stripEl.appendChild(d); segEls.push(d);
+});
+function fmtTC(t){ const m=Math.floor(t/60), s=t-m*60; return String(m).padStart(2,'0')+':'+s.toFixed(1).padStart(4,'0'); }
+function fmtDur(sec){ sec=Math.max(0,Math.round(sec)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
+let logStart=0;
+function log(msg,cls){
+  const el=document.createElement('div');
+  if(cls) el.className=cls;
+  const t=((performance.now()-logStart)/1000);
+  el.innerHTML=`<span class="t">[+${fmtDur(t)}]</span>${msg}`;
+  $('log').appendChild(el);
+  while($('log').children.length>90) $('log').firstChild.remove();
+  $('log').scrollTop=$('log').scrollHeight;
+}
+function setPhase(html,sub){ $('phase').innerHTML=html; $('sub').textContent=sub; }
+function setState(txt){ $('stState').textContent=txt; }
+function setDot(mode){ $('dot').className='dot '+(mode||''); }
+function uiBusy(b){
+  $('selRes').disabled=b; $('selFps').disabled=b;
+  $('btnCancel').classList.toggle('hidden',!b);
+  $('btnStart').classList.add('hidden'); $('btnSave').classList.add('hidden'); $('btnAgain').classList.add('hidden');
 }
 
 /* ============================================================
-   EXPORT ENGINE — WebCodecs + mp4-muxer (mengikuti §11 ketat)
+   EXPORT ENGINE — full background
 ============================================================ */
-function codecFor(W,fps){                                  // 11.3 — codec per resolusi
-  if(W<=1080) return 'avc1.640028';                        // High L4.0 (1080 @30/60)
-  return fps>=60 ? 'avc1.640034' : 'avc1.640033';          // 4K L5.2 / L5.1
+function codecFor(W,fps){
+  if(W<=1080) return 'avc1.640028';
+  return fps>=60 ? 'avc1.640034' : 'avc1.640033';
 }
-function setStat(msg,cls){ const s=$('stat'); s.textContent=msg; s.className=cls||''; }
-async function startExport(){
-  if(exporting) return;
-  setStat('MEMERIKSA KAPABILITAS ENCODER…','');
-  $('bar').style.width='0%';
-  /* 11.10 — feature detection */
-  if(typeof window.VideoEncoder==='undefined'){
-    setStat('WEBCODECS TIDAK TERSEDIA — GUNAKAN GOOGLE CHROME / EDGE DESKTOP','err'); return;
-  }
-  let muxMod;
-  try{ muxMod=await import('mp4-muxer'); }
-  catch(e){ setStat('LIBRARY mp4-muxer GAGAL DIMUAT — PERIKSA KONEKSI CDN','err'); return; }
-  const { Muxer, ArrayBufferTarget }=muxMod;
+let running=false, cancelled=false, finalUrl=null, finalBlob=null;
+function triggerDownload(){
+  if(!finalUrl) return;
+  const a=document.createElement('a');
+  a.href=finalUrl; a.download='AXION-Neuralis-Teaser-9x16.mp4';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function startProduction(){
+  if(running) return;
+  cancelled=false;
+  logStart=performance.now();
+  $('log').innerHTML='';
+  setDot('run'); setState('SETUP');
+  setPhase('MENYIAPKAN <span class="dim">PIPELINE…</span>','FEATURE DETECTION & KONFIGURASI ENCODER');
+  uiBusy(true);
+  $('btnSave').classList.add('hidden'); $('btnAgain').classList.add('hidden');
+  $('barFill').style.width='0%'; $('barPct').textContent='0%';
+  segEls.forEach(s=>s.className='seg');
 
   const W=+$('selRes').value, H=Math.round(W*16/9), fps=+$('selFps').value;
   const codec=codecFor(W,fps);
   const bitrate=W>=2160?60000000:24000000;
-  /* 11.3 — isConfigSupported wajib */
-  let support;
-  try{
-    support=await VideoEncoder.isConfigSupported({codec,width:W,height:H,framerate:fps,bitrate});
-  }catch(e){
-    setStat('GAGAL MENGUJI CODEC: '+e.message,'err'); return;
-  }
-  if(!support.supported){
-    setStat(`CODEC ${codec} ${W}×${H}@${fps}FPS TIDAK DIDUKUNG DEVICE INI`,'err'); return;
-  }
-
-  exporting=true; setPlaying(false);
-  const btnDl=$('btnDl'),btnP=$('btnPlay'),selR=$('selRes'),selF=$('selFps');
-  btnDl.disabled=true; btnP.disabled=true; selR.disabled=true; selF.disabled=true;
-  const savedT=tCur;
-  let encoder=null, muxer=null, encErr=null, failedFrame=-1;
   const total=40*fps;
+  $('cfgLabel').textContent=`${W}×${H} · ${fps}FPS · ${(bitrate/1e6).toFixed(0)} MBPS · ${codec}`;
+  $('stOut').textContent=`${W>=2160?'4K':'1080p'}·${fps}`;
+  log(`TARGET — ${W}×${H} @ ${fps}FPS · ${(bitrate/1e6).toFixed(0)} Mbps · H.264 HIGH · TANPA AUDIO`,'hi');
+
+  let encoder=null, muxer=null, encErr=null, failedFrame=-1;
   try{
-    /* 11.2 — canvas HARUS persis = config encoder */
+    if(typeof window.VideoEncoder==='undefined') throw new Error('WEBCODECS TIDAK TERSEDIA — GUNAKAN GOOGLE CHROME / EDGE DESKTOP');
+    let muxMod;
+    try{ muxMod=await import('mp4-muxer'); }
+    catch(e){ throw new Error('LIBRARY mp4-muxer GAGAL DIMUAT — PERIKSA KONEKSI CDN'); }
+    const { Muxer, ArrayBufferTarget }=muxMod;
+
+    let support;
+    try{ support=await VideoEncoder.isConfigSupported({codec,width:W,height:H,framerate:fps,bitrate}); }
+    catch(e){ throw new Error('GAGAL MENGUJI CODEC: '+e.message); }
+    if(!support.supported) throw new Error(`CODEC ${codec} ${W}×${H}@${fps}FPS TIDAK DIDUKUNG DEVICE INI`);
+    log(`CODEC DIDUKUNG — ${codec}`,'ok');
+
+    /* canvas buffer = persis config encoder (canvas tetap tersembunyi) */
     renderer.setPixelRatio(1);
     renderer.setSize(W,H,false);
     setPipelineSize(W,H);
-    setStat(`EXPORT DIMULAI — ${W}×${H} @ ${fps}FPS (${total} FRAME)…`,'');
+    log(`RENDER TARGET AKTIF — BUFFER ${W}×${H} (BACKGROUND)`,'hi');
 
     muxer=new Muxer({ target:new ArrayBufferTarget(),
       video:{codec:'avc',width:W,height:H,frameRate:fps},
@@ -955,80 +1026,111 @@ async function startExport(){
       error:e=>{ encErr=e; }
     });
     encoder.configure({codec,width:W,height:H,bitrate,framerate:fps});
+    log('VIDEOENCODER CONFIGURED','ok');
+    setState('RENDER + ENCODE');
 
     const frameDur=Math.round(1000000/fps);
     const t0=performance.now();
+    let lastScene=-1;
     for(let f=0;f<total;f++){
+      if(cancelled) throw new Error('DIBATALKAN PENGGUNA');
       failedFrame=f;
       if(encErr) throw encErr;
-      if(encoder.state==='closed'||encoder.state==='errored') throw new Error('encoder tertutup sebelum selesai');
-      renderFrame(f/fps);                                   // deterministik: seek + render
-      /* 11.4 — timestamp mikrodtk, monoton; 11.5 — frame sinkron dr canvas */
+      if(encoder.state==='closed'||encoder.state==='errored') throw new Error('ENCODER TERTUTUP SEBELUM SELESAI');
+
+      renderFrame(f/fps);
+
       const vf=new VideoFrame(canvas,{timestamp:Math.round(f*1000000/fps),duration:frameDur});
       encoder.encode(vf,{keyFrame:(f%(fps*2))===0});
-      vf.close();                                           // 14 — hindari leak
-      /* 11.6 — backpressure */
-      while(encoder.encodeQueueSize>4){ await raf(); if(encErr) throw encErr; }
-      if((f+1)%240===0){ await encoder.flush(); }           // drain berkala utk export panjang
-      if(f%4===0){
-        const pct=((f+1)/total*100);
+      vf.close();
+
+      while(encoder.encodeQueueSize>4){ await nextTick(); if(encErr) throw encErr; if(cancelled) throw new Error('DIBATALKAN PENGGUNA'); }
+      if((f+1)%240===0){ await encoder.flush(); log(`FLUSH ENCODER — FRAME ${f+1}/${total}`,'warn'); }
+
+      const tSec=f/fps, sc=sceneAt(tSec);
+      if(sc!==lastScene){
+        lastScene=sc;
+        setPhase(`SCENE ${sc} · <span class="dim">${SCENES[sc].name}</span>`,`SEGMENT ${sc+1}/6 — MERENDER & ENCODE DI LATAR BELAKANG`);
+        segEls.forEach((el,i)=>el.className='seg'+(i<sc?' done':i===sc?' active':''));
+        log(`→ SCENE ${sc} — ${SCENES[sc].name}`,'hi');
+      }
+      if(f%2===0){
+        const pct=(f+1)/total*100;
         const el=(performance.now()-t0)/1000;
-        const eta=Math.ceil(el/(f+1)*(total-f-1));
-        $('bar').style.width=pct.toFixed(1)+'%';
-        setStat(`FRAME ${f+1}/${total} · ${pct.toFixed(0)}% · ETA ±${eta}s — EXPORT LEBIH LAMA DARI 40 DETIK ITU NORMAL`,'');
-        await raf();
+        const eta=el/(f+1)*(total-f-1);
+        const spd=(f+1)/el;
+        $('barFill').style.width=pct.toFixed(2)+'%';
+        $('barPct').textContent=pct.toFixed(1)+'%';
+        $('stFrame').textContent=`${f+1}/${total}`;
+        $('stTime').textContent=`${fmtTC(tSec)} / 40.0`;
+        $('stQueue').textContent=encoder.encodeQueueSize;
+        $('stSpeed').textContent=spd.toFixed(1)+' fps';
+        $('stElapsed').textContent=fmtDur(el);
+        $('stEta').textContent='±'+fmtDur(eta);
+        if(f%10===0) document.title=`AXION · ${pct.toFixed(0)}% · FRAME ${f+1}/${total}`;
+        await nextTick();
       }
     }
     failedFrame=-1;
-    setStat('FLUSHING ENCODER…','');
-    await encoder.flush();                                  // 11.7 — flush SEBELUM finalize
+    segEls.forEach(el=>el.className='seg done');
+    setPhase('FINALISASI <span class="dim">MUXER…</span>','FLUSH ENCODER → MP4');
+    setState('FINALIZE');
+    log('FLUSH ENCODER FINAL…','warn');
+    await encoder.flush();
     encoder.close(); encoder=null;
     muxer.finalize();
     const buf=muxer.target.buffer;
-    if(!buf||buf.byteLength===0) throw new Error('muxer menghasilkan buffer 0 byte');
-    const blob=new Blob([buf],{type:'video/mp4'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url; a.download='AXION-Neuralis-Teaser-9x16.mp4';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),5000);
-    $('bar').style.width='100%';
-    setStat(`SELESAI — ${(blob.size/1048576).toFixed(1)} MB · AXION-Neuralis-Teaser-9x16.mp4 DIUNDUH`,'ok');
+    if(!buf||buf.byteLength===0) throw new Error('MUXER MENGHASILKAN BUFFER 0 BYTE');
+    finalBlob=new Blob([buf],{type:'video/mp4'});
+    if(finalUrl) URL.revokeObjectURL(finalUrl);
+    finalUrl=URL.createObjectURL(finalBlob);
+    triggerDownload();
+    const el=(performance.now()-t0)/1000;
+    $('barFill').style.width='100%'; $('barPct').textContent='100%';
+    $('stFrame').textContent=`${total}/${total}`; $('stTime').textContent='40.0 / 40.0';
+    $('stQueue').textContent='0'; $('stElapsed').textContent=fmtDur(el); $('stEta').textContent='00:00';
+    setPhase('SELESAI · <span class="dim">SINYAL TERKIRIM</span>',`AXION-Neuralis-Teaser-9x16.mp4 · ${(finalBlob.size/1048576).toFixed(1)} MB — UNDUH OTOMATIS DIJALANKAN`);
+    setState('DONE'); setDot('on');
+    log(`SELESAI — ${(finalBlob.size/1048576).toFixed(1)} MB DALAM ${fmtDur(el)} · FILE DIUNDUH OTOMATIS`,'ok');
+    document.title='AXION NEURALIS · RENDER SELESAI ✓';
+    $('btnSave').classList.remove('hidden'); $('btnAgain').classList.remove('hidden');
   }catch(e){
-    /* 11.8 — error spesifik + lokasi frame */
-    const where=failedFrame>=0?` — GAGAL SAAT ENCODE FRAME ${failedFrame+1}/${total}`:'';
     const msg=e&&e.message?e.message:String(e);
-    let hint='';
-    if(/codec/i.test(msg)) hint=' (codec tidak didukung browser ini)';
-    setStat('EXPORT GAGAL'+where+': '+msg+hint,'err');
+    if(msg==='DIBATALKAN PENGGUNA'){
+      setPhase('DIBATALKAN <span class="dim">PENGGUNA</span>','PIPELINE DIHENTIKAN');
+      setState('CANCELLED'); setDot('');
+      log('RENDER DIBATALKAN','err');
+    }else{
+      const where=failedFrame>=0?` — GAGAL DI FRAME ${failedFrame+1}/${total}`:'';
+      setPhase('ERROR <span class="dim">PIPELINE</span>',msg);
+      setState('ERROR'); setDot('');
+      log('EXPORT GAGAL'+where+': '+msg,'err');
+    }
     try{ if(encoder&&encoder.state!=='closed') encoder.close(); }catch(_){}
+    $('btnStart').classList.remove('hidden');
+    $('btnStart').textContent='▶ MULAI PRODUKSI';
   }finally{
-    exporting=false;
-    layoutPreview(); renderFrame(savedT);
-    btnDl.disabled=false; btnP.disabled=false; selR.disabled=false; selF.disabled=false;
+    running=false;
+    uiBusy(false);
+    $('btnAgain').classList.remove('hidden');
   }
 }
 
-/* ============================================================
-   LAYOUT & BOOT
-============================================================ */
-function layoutPreview(){
-  const box=$('stage').getBoundingClientRect();
-  const pr=Math.min(window.devicePixelRatio||1,2);          // 7.3 — HiDPI
-  renderer.setPixelRatio(pr);
-  const bufH=Math.min(1920,Math.max(480,Math.round(box.height*pr)));
-  const bufW=Math.round(bufH*9/16);
-  renderer.setSize(bufW/pr,bufH/pr,false);                  // drawing buffer = bufW×bufH
-  setPipelineSize(bufW,bufH);
-}
-window.addEventListener('resize',()=>{ if(!exporting) layoutPreview(); });
+$('btnStart').addEventListener('click',startProduction);
+$('btnAgain').addEventListener('click',startProduction);
+$('btnSave').addEventListener('click',triggerDownload);
+$('btnCancel').addEventListener('click',()=>{ cancelled=true; log('PERMINTAAN BATAL DITERIMA…','warn'); });
 window.addEventListener('pagehide',()=>{
   try{
     renderer.dispose();
     [rtScene,rtH1,rtH2,rtH3,rtQ1,rtQ2,rtComp].forEach(r=>r.dispose());
+    if(finalUrl) URL.revokeObjectURL(finalUrl);
   }catch(e){}
 });
 
+/* ============================================================
+   BOOT — auto-start produksi di latar belakang
+============================================================ */
 async function boot(){
   try{
     await Promise.all([
@@ -1038,25 +1140,20 @@ async function boot(){
       document.fonts.load('500 32px "IBM Plex Mono"'),
       document.fonts.load('400 32px "IBM Plex Mono"'),
     ]).catch(()=>{});
-    buildEmblem();
-    buildCards();
-    buildTimeline();
-    layoutPreview();
+    log('FONT DIMUAT — UNBOUNDED + IBM PLEX MONO','ok');
+    buildEmblem();   log('GEOMETRI PARTIKEL — 45.000 PTS · 6 MORPH TARGET · 1 DRAW CALL','hi');
+    buildCards();    log('TEXT LAYER — 6 KARTU SUPERSAMPLED 2048px · ANISOTROPY MAX','hi');
+    buildTimeline(); log('TIMELINE GSAP — 40.00s DETERMINISTIK','hi');
     renderFrame(0);
-    requestAnimationFrame(t=>{ last=t; tick(t); });
     $('boot').classList.add('off');
-    setStat('SIAP — 40.00s · 9:16 · H.264 · TANPA AUDIO','ok');
-    if(!prm){ tCur=0; setPlaying(true); }
+    log('PIPELINE SIAP — AUTO-START PRODUKSI DI LATAR BELAKANG','ok');
+    running=true;                 // guard: cegah double start
+    running=false;
+    startProduction();            // semua berjalan di belakang layar; UI hanya menampilkan proses
   }catch(e){
     document.querySelector('#boot .s').textContent='ERROR: '+e.message;
   }
 }
-$('btnPlay').addEventListener('click',()=>{
-  if(exporting) return;
-  if(!playing&&tCur>=40) tCur=0;
-  setPlaying(!playing);
-});
-$('btnDl').addEventListener('click',startExport);
 boot();
 </script>
 </body>
