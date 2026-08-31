@@ -1,1160 +1,593 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>AXION NEURALIS — ONE SIGNAL · Background Render Pipeline</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<title>AXION Neuralis — Loading Screen</title>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/unbounded@5/300.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/unbounded@5/400.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/unbounded@5/700.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono@5/400.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono@5/500.css">
+<!-- Tipografi (fontsource CDN) -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://cdn.jsdelivr.net/npm/@fontsource/cinzel@latest/latin-600.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@fontsource/rajdhani@latest/latin-500.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/@fontsource/rajdhani@latest/latin-600.css" rel="stylesheet">
 
 <style>
-  :root{ --bg:#050608; --panel:#0a0d12; --line:#1c2330; --line2:#28313f;
-         --txt:#c9d2df; --dim:#5d6a7d; --acc:#7de3ff; --gold:#ffd489; --err:#ff7b6b; --ok:#8fe6b0; }
-  *{margin:0;padding:0;box-sizing:border-box}
-  html,body{background:var(--bg);color:var(--txt);font-family:"IBM Plex Mono",monospace}
-  body{min-height:100vh;display:flex;flex-direction:column;
-       background:radial-gradient(120% 90% at 50% 0%, #0a0e15 0%, #050608 55%, #030405 100%)}
-  /* canvas render target — sepenuhnya di belakang layar, hanya buffer-nya yang dipakai */
-  #view{position:fixed;top:0;left:0;width:2px;height:2px;opacity:0;pointer-events:none;z-index:-1}
-
-  header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px;
-         padding:16px 26px;border-bottom:1px solid var(--line);font-size:10px;letter-spacing:.18em;color:var(--dim)}
-  header b{color:var(--txt);font-weight:500}
-  .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--err);margin-right:8px;vertical-align:1px}
-  .dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
-  .dot.run{background:var(--acc);box-shadow:0 0 8px var(--acc);animation:bl 1s steps(2) infinite}
-
-  main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:26px 16px 30px;gap:0}
-  #console{width:min(96vw,760px);border:1px solid var(--line);background:rgba(8,11,16,.72);position:relative}
-  #console::before,#console::after{content:"";position:absolute;width:14px;height:14px;border:1px solid rgba(125,227,255,.5)}
-  #console::before{top:-6px;left:-6px;border-right:0;border-bottom:0}
-  #console::after{bottom:-6px;right:-6px;border-left:0;border-top:0}
-
-  .row{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);
-       font-size:9px;letter-spacing:.2em;color:var(--dim);flex-wrap:wrap;gap:8px}
-  .row .cfg{color:#7b8698}
-
-  #phase{padding:26px 18px 6px;font-family:"Unbounded";font-weight:700;font-size:clamp(18px,3.4vw,27px);
-         letter-spacing:.04em;color:#fff;line-height:1.25;min-height:64px}
-  #phase .dim{color:var(--dim);font-weight:300}
-  #sub{padding:0 18px 20px;font-size:9px;letter-spacing:.24em;color:var(--dim)}
-
-  #barWrap{height:34px;margin:0 18px;border:1px solid var(--line2);position:relative;background:#070a0f;overflow:hidden}
-  #barFill{position:absolute;inset:0;width:0%;background:linear-gradient(90deg,#17515f,#2c8ca8 60%,var(--acc));transition:width .12s linear}
-  #barTicks{position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(5,6,8,.9) calc(10% - 1px) 10%)}
-  #barPct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-          font-size:11px;letter-spacing:.24em;color:#eaf6ff;text-shadow:0 0 8px #000}
-
-  #strip{display:flex;gap:3px;margin:14px 18px 0}
-  .seg{flex-grow:1;border:1px solid var(--line);padding:7px 4px 6px;text-align:center;font-size:8px;letter-spacing:.14em;color:var(--dim);
-       background:#070a0f;transition:all .25s;white-space:nowrap;overflow:hidden}
-  .seg small{display:block;font-size:7px;opacity:.6;margin-top:3px;letter-spacing:.08em}
-  .seg.done{border-color:#1f3d33;color:#4f8f74;background:#08120e}
-  .seg.active{border-color:var(--acc);color:#eaffff;background:#0a161c;box-shadow:inset 0 0 14px rgba(125,227,255,.16)}
-
-  #stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--line);margin-top:18px}
-  .cell{padding:12px 14px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .cell:nth-child(4n){border-right:0}
-  .cell:nth-last-child(-n+4){border-bottom:0}
-  .cell b{display:block;font-size:8px;letter-spacing:.22em;color:var(--dim);font-weight:400;margin-bottom:7px}
-  .cell span{font-size:13px;color:#dfe8f4;letter-spacing:.06em}
-  .cell span.hot{color:var(--acc)}
-
-  #log{height:132px;overflow-y:auto;padding:12px 18px;border-top:1px solid var(--line);
-       font-size:9.5px;line-height:1.85;color:#6d7a8d;background:#06080c}
-  #log .t{color:#3d4656;margin-right:10px}
-  #log .ok{color:var(--ok)} #log .warn{color:var(--gold)} #log .err{color:var(--err)} #log .hi{color:#aebdd2}
-
-  #actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;padding:16px;border-top:1px solid var(--line)}
-  button,select{font-family:inherit;font-size:10px;letter-spacing:.14em;color:var(--txt);
-    background:var(--panel);border:1px solid var(--line2);padding:10px 16px;cursor:pointer;border-radius:2px;
-    transition:border-color .2s,color .2s,background .2s}
-  button:hover:not(:disabled),select:hover:not(:disabled){border-color:var(--acc);color:#fff}
-  button:disabled,select:disabled{opacity:.35;cursor:default}
-  #btnSave{border-color:#5a4a22;color:var(--gold)}
-  #btnSave:hover{border-color:var(--gold);background:#141006}
-  #btnCancel{border-color:#4a2420;color:#d98a80}
-  .grp{display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:.16em;color:var(--dim)}
-  .hidden{display:none!important}
-
-  #note{width:min(96vw,760px);text-align:center;margin-top:14px;font-size:8.5px;letter-spacing:.22em;color:#3f4858}
-  #boot{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;gap:14px;
-        align-items:center;justify-content:center;z-index:50;transition:opacity .6s}
-  #boot.off{opacity:0;pointer-events:none}
-  #boot .k{font-size:11px;letter-spacing:.4em;color:var(--acc)}
-  #boot .s{font-size:9px;letter-spacing:.3em;color:var(--dim)}
-  .blink{animation:bl 1.1s steps(2) infinite}
-  @keyframes bl{50%{opacity:.25}}
-  @media (max-width:560px){ #stats{grid-template-columns:repeat(2,1fr)} .cell:nth-child(4n){border-right:1px solid var(--line)} .cell:nth-child(2n){border-right:0} }
-</style>
-
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "gsap": "https://cdn.jsdelivr.net/npm/gsap@3.12.5/+esm",
-    "mp4-muxer": "https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.mjs"
-  }
+/* ============ TOKENS ============ */
+:root{
+  --bg:#0a0a0f;
+  --blood:#8b0000;
+  --crimson:#dc143c;
+  --rose:#ff4d6d;
+  --gold:#f5c469;
+  --ink:#f4eeee;
+  --dim:rgba(244,238,238,.52);
 }
-</script>
+
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Rajdhani','Segoe UI',sans-serif;
+  min-height:100dvh;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ============ LATAR: CANVAS & CAHAYA ============ */
+#sky{position:fixed;inset:0;z-index:1;display:block}
+
+.glow{position:fixed;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:1;will-change:transform}
+.glow-a{width:58vmax;height:58vmax;left:-20vmax;top:-24vmax;
+  background:radial-gradient(circle,rgba(139,0,0,.55),transparent 62%);
+  animation:driftA 17s ease-in-out infinite alternate}
+.glow-b{width:50vmax;height:50vmax;right:-18vmax;bottom:-22vmax;
+  background:radial-gradient(circle,rgba(220,20,60,.30),transparent 60%);
+  animation:driftB 21s ease-in-out infinite alternate}
+@keyframes driftA{to{transform:translate(6vmax,4vmax)}}
+@keyframes driftB{to{transform:translate(-5vmax,-4vmax)}}
+
+.vignette{position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 42%,rgba(4,4,8,.55) 76%,rgba(2,2,5,.88) 100%)}
+
+.grain{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:.055;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='180' height='180' filter='url(%23n)'/></svg>")}
+
+/* ============ TOMBOL DOWNLOAD ============ */
+.dl-btn{
+  position:fixed;z-index:9;
+  left:50%;top:calc(50% + clamp(72px,13vh,132px));
+  transform:translate(-50%,-50%);
+  display:inline-flex;align-items:center;gap:11px;
+  font-family:'Cinzel',serif;font-weight:600;
+  font-size:.85rem;letter-spacing:.28em;text-indent:.1em;
+  color:var(--ink);white-space:nowrap;
+  padding:.95rem 2.3rem;
+  background:rgba(220,20,60,.08);
+  border:1px solid rgba(220,20,60,.55);border-radius:3px;
+  cursor:pointer;overflow:hidden;
+  text-shadow:0 0 12px rgba(220,20,60,.4);
+  transition:box-shadow .4s ease,background .4s ease,border-color .4s ease,opacity .4s ease;
+  animation:btnIn 1s .25s cubic-bezier(.22,1,.36,1) both}
+@keyframes btnIn{from{opacity:0;transform:translate(-50%,-38%)}to{opacity:1;transform:translate(-50%,-50%)}}
+
+.dl-btn::after{content:'';position:absolute;inset:0;
+  background:linear-gradient(105deg,transparent 32%,rgba(255,255,255,.16) 47%,rgba(245,196,105,.28) 53%,transparent 68%);
+  transform:translateX(-130%);transition:transform .85s ease}
+.dl-btn:hover:not(:disabled),.dl-btn:focus-visible:not(:disabled){
+  border-color:var(--rose);
+  background:rgba(220,20,60,.16);
+  box-shadow:0 0 26px rgba(220,20,60,.6),0 0 60px rgba(139,0,0,.4),inset 0 0 18px rgba(220,20,60,.25);
+  text-shadow:0 0 16px rgba(255,77,109,.8)}
+.dl-btn:hover:not(:disabled)::after{transform:translateX(130%)}
+.dl-btn:active:not(:disabled){transform:translate(-50%,-50%) scale(.97)}
+.dl-btn:focus-visible{outline:1px solid rgba(245,196,105,.85);outline-offset:4px}
+.dl-btn:disabled{cursor:default;opacity:.85}
+
+.dl-btn .dot{width:7px;height:7px;border-radius:50%;flex:none;
+  background:var(--gold);box-shadow:0 0 8px rgba(245,196,105,.85);opacity:.75;
+  transition:background .3s,box-shadow .3s}
+.dl-btn.rec .dot{background:var(--crimson);box-shadow:0 0 10px var(--crimson);
+  animation:blink .9s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+.dl-note{
+  position:fixed;z-index:9;left:50%;
+  top:calc(50% + clamp(72px,13vh,132px) + 52px);
+  transform:translateX(-50%);
+  font-size:.7rem;font-weight:500;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--dim);text-align:center;max-width:92vw;min-height:1em}
+
+@media (prefers-reduced-motion:reduce){
+  .glow-a,.glow-b{animation:none}
+  .dl-btn{animation-duration:.01s}
+}
+</style>
 </head>
 <body>
 
-<canvas id="view"></canvas>
+<!-- Latar partikel -->
+<canvas id="sky" aria-hidden="true"></canvas>
+<div class="glow glow-a" aria-hidden="true"></div>
+<div class="glow glow-b" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
 
-<header>
-  <span><span id="dot" class="dot"></span><b>AXION NEURALIS</b> · BACKGROUND RENDER PIPELINE</span>
-  <span>9:16 · 40.00s · H.264 HIGH · NO-AUDIO</span>
-</header>
+<!-- Satu-satunya kontrol: tombol download -->
+<button class="dl-btn" id="dlBtn" type="button">
+  <span class="dot" aria-hidden="true"></span><span id="dlLabel">Download MP4</span>
+</button>
+<p class="dl-note" id="dlNote" aria-live="polite"></p>
 
-<main>
-  <div id="console">
-    <div class="row">
-      <span>PRODUCTION // ONE SIGNAL — SEMUA PROSES BERJALAN DI LATAR BELAKANG</span>
-      <span class="cfg" id="cfgLabel">—</span>
-    </div>
+<div class="grain" aria-hidden="true"></div>
 
-    <div id="phase"><span class="dim">STANDBY</span></div>
-    <div id="sub">MENUNGGU PIPELINE…</div>
+<noscript>
+  <p style="position:fixed;inset:auto 0 12px;text-align:center;color:#dc143c;z-index:99">
+    AXION Neuralis membutuhkan JavaScript untuk menghidupkan cintanya.
+  </p>
+</noscript>
 
-    <div id="barWrap"><div id="barFill"></div><div id="barTicks"></div><div id="barPct">0%</div></div>
+<!-- Muxer MP4 (dipakai bersama WebCodecs; fallback otomatis bila tak tersedia) -->
+<script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5/build/mp4-muxer.js"></script>
 
-    <div id="strip"></div>
+<script>
+(function(){
+'use strict';
 
-    <div id="stats">
-      <div class="cell"><b>FRAME</b><span id="stFrame">—</span></div>
-      <div class="cell"><b>TIMECODE</b><span id="stTime">—</span></div>
-      <div class="cell"><b>ANTREAN ENCODE</b><span id="stQueue">—</span></div>
-      <div class="cell"><b>KECEPATAN</b><span id="stSpeed">—</span></div>
-      <div class="cell"><b>ELAPSED</b><span id="stElapsed">—</span></div>
-      <div class="cell"><b>ETA</b><span id="stEta">—</span></div>
-      <div class="cell"><b>OUTPUT</b><span id="stOut">—</span></div>
-      <div class="cell"><b>STATUS</b><span class="hot" id="stState">IDLE</span></div>
-    </div>
+const REDUCED = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const rand = (a,b)=>a+Math.random()*(b-a);
 
-    <div id="log"></div>
+/* ================= DOM ================= */
+const canvas  = document.getElementById('sky');
+const ctx     = canvas.getContext('2d');
+const dlBtn   = document.getElementById('dlBtn');
+const dlLabel = document.getElementById('dlLabel');
+const dlNote  = document.getElementById('dlNote');
 
-    <div id="actions">
-      <span class="grp">RESOLUSI
-        <select id="selRes"><option value="1080" selected>1080×1920</option><option value="2160">2160×3840 · 4K</option></select>
-      </span>
-      <span class="grp">FPS
-        <select id="selFps"><option value="30" selected>30</option><option value="60">60</option></select>
-      </span>
-      <button id="btnStart" class="hidden">▶ MULAI PRODUKSI</button>
-      <button id="btnCancel" class="hidden">✕ BATALKAN</button>
-      <button id="btnSave" class="hidden">⬇ SIMPAN MP4</button>
-      <button id="btnAgain" class="hidden">↻ RENDER ULANG</button>
-    </div>
-  </div>
-  <div id="note">TAB BOLEH DIPINDAHKAN / DIMINIMIZE — WORKER TIMER MENJAGA RENDER TETAP BERJALAN · HASIL DIUNDUH OTOMATIS SAAT SELESAI</div>
-</main>
+/* ================= STATE ================= */
+let W=0, H=0, DPR=1;
+const stars=[], hearts=[], meteors=[];
+let meteorCountdown = 2.5;
 
-<div id="boot"><div class="k">AXION NEURALIS</div><div class="s blink">// INITIALIZING BACKGROUND PIPELINE…</div></div>
+/* progres loading (dipakai layar & perekaman) */
+let progress=0, finished=false, pulseAt=-1e9;
+let runStart=0, nextTick=0;
 
-<script type="module">
-import * as THREE from 'three';
-import { gsap } from 'gsap';
-
-/* ============================================================
-   UTIL
-============================================================ */
-const $=id=>document.getElementById(id);
-const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
-function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
-const rnd=mulberry32(20240917);
-const gauss=()=> (rnd()+rnd()+rnd()-1.5)*0.816;
-function sphDir(out){const u=rnd()*2-1,ph=rnd()*Math.PI*2,s=Math.sqrt(1-u*u);out[0]=s*Math.cos(ph);out[1]=u;out[2]=s*Math.sin(ph);return out;}
-const n1=(t,f,p)=>Math.sin(t*f+p)*0.55+Math.sin(t*f*1.93+p*2.7)*0.3+Math.sin(t*f*3.71+p*5.1)*0.15;
-
-/* Worker ticker — menjaga loop export tetap hidup walau tab di latar belakang */
-let ticker=null, pendingTick=null;
-try{
-  const src='var n=0;setInterval(function(){postMessage(n++)},1000/60);';
-  ticker=new Worker(URL.createObjectURL(new Blob([src],{type:'text/javascript'})));
-  ticker.onmessage=()=>{ if(pendingTick){ const p=pendingTick; pendingTick=null; p(); } };
-}catch(e){ ticker=null; }
-function nextTick(){
-  return new Promise(res=>{
-    if(ticker){ pendingTick=res; } else { requestAnimationFrame(res); }
-  });
+/* ================= PARTIKEL (koordinat normalisasi 0..1) ================= */
+function makeStar(){
+  return {
+    nx:Math.random(), ny:Math.random(),
+    rf:rand(0.0005,0.0016),            // radius (fraksi tinggi)
+    a:rand(0.25,0.9),
+    sp:rand(0.6,2.4), ph:rand(0,Math.PI*2),
+    vnx:rand(-0.0016,-0.0003), vny:rand(-0.0007,0.0007),
+    col: Math.random()<0.2 ? '#ffd9a0' : '#ffffff'
+  };
 }
-
-/* ============================================================
-   STATE — seluruh animasi 40s (deterministik)
-============================================================ */
-const S={
-  t:0,
-  w0:1,w1:0,w2:0,w3:0,w4:0, finale:0,
-  birth:0, imp:0, disperse:0, explode:0, suck:0, compress:0, lock:0,
-  wave:0, ringR:0, ringA:0, jitter:0.5, intensity:1.5, pOp:0,
-  camA:0, camR:8.5, camY:0.3, tx:0, ty:0, tz:0,
-  fov:55, focus:8.5, ap:0.5, drift:0.06, roll:0,
-  grain:0.055, ca:1.0,
-  lineOp0:0, lineOp1:0, lineSpeed:0.35, lsr:0.85, lsg:0.9, lsb:1.0,
-  panelsOp:0, coreOp:0, coreScale:0.3, corePulse:0, emblemOp:0, coinRot:0,
-  introOp:0, introGlitch:1, accOp:0, aiOp:0, adsOp:0, coinOp:0,
-  finOp:0, finSweep:-0.3,
-  tintR:1, tintG:1, tintB:1
-};
-
-/* ============================================================
-   RENDERER + RENDER TARGETS (canvas tersembunyi)
-============================================================ */
-const canvas=$('view');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,stencil:false,
-  preserveDrawingBuffer:true,powerPreference:'high-performance'});
-renderer.setClearColor(0x000000,1);
-renderer.setPixelRatio(1);
-renderer.outputColorSpace=THREE.LinearSRGBColorSpace;
-renderer.toneMapping=THREE.NoToneMapping;
-const MAX_ANISO=renderer.capabilities.getMaxAnisotropy();
-
-let curW=1080,curH=1920;
-function makeRT(w,h,withDepth){
-  const rt=new THREE.WebGLRenderTarget(w,h,{type:THREE.HalfFloatType,
-    minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter,depthBuffer:!!withDepth});
-  if(withDepth){ rt.depthTexture=new THREE.DepthTexture(w,h); rt.depthTexture.type=THREE.UnsignedIntType; }
-  return rt;
+function makeHeart(anywhere){
+  return {
+    nx:Math.random(),
+    ny: anywhere ? Math.random() : 1 + rand(0.03,0.18),
+    hf:rand(0.006,0.016),              // ukuran (fraksi tinggi)
+    vy:rand(0.011,0.028),              // naik, fraksi tinggi / detik
+    amp:rand(0.008,0.026),             // ayunan, fraksi lebar
+    w:rand(0.4,1.1), ph:rand(0,Math.PI*2),
+    a:rand(0.16,0.5),
+    gold: Math.random()<0.18
+  };
 }
-let rtScene=makeRT(curW,curH,true),
-    rtH1=makeRT(curW>>1,curH>>1,false), rtH2=makeRT(curW>>1,curH>>1,false), rtH3=makeRT(curW>>1,curH>>1,false),
-    rtQ1=makeRT(curW>>2,curH>>2,false), rtQ2=makeRT(curW>>2,curH>>2,false),
-    rtComp=makeRT(curW,curH,false);
-
-const passScene=new THREE.Scene();
-const passCam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-const quad=new THREE.Mesh(new THREE.PlaneGeometry(2,2));
-passScene.add(quad);
-function runPass(mat,rt){ quad.material=mat; renderer.setRenderTarget(rt); renderer.render(passScene,passCam); }
-const QVERT=`varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.0,1.0); }`;
-
-const matBright=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
-  uniform sampler2D tSrc; uniform float uTh; varying vec2 vUv;
-  void main(){ vec3 c=texture2D(tSrc,vUv).rgb;
-    float l=dot(c,vec3(0.2126,0.7152,0.0722));
-    gl_FragColor=vec4(c*smoothstep(uTh,uTh+0.5,l),1.0); }`,
-  uniforms:{tSrc:{value:null},uTh:{value:0.85}}});
-
-const matBlur=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
-  uniform sampler2D tSrc; uniform vec2 uDir,uTexel; uniform float uRad; varying vec2 vUv;
-  void main(){ vec2 o=uDir*uTexel*uRad;
-    vec3 c=texture2D(tSrc,vUv).rgb*0.227027;
-    c+=(texture2D(tSrc,vUv+o).rgb+texture2D(tSrc,vUv-o).rgb)*0.1945946;
-    c+=(texture2D(tSrc,vUv+o*2.0).rgb+texture2D(tSrc,vUv-o*2.0).rgb)*0.1216216;
-    c+=(texture2D(tSrc,vUv+o*3.0).rgb+texture2D(tSrc,vUv-o*3.0).rgb)*0.054054;
-    c+=(texture2D(tSrc,vUv+o*4.0).rgb+texture2D(tSrc,vUv-o*4.0).rgb)*0.016216;
-    gl_FragColor=vec4(c,1.0); }`,
-  uniforms:{tSrc:{value:null},uDir:{value:new THREE.Vector2()},uTexel:{value:new THREE.Vector2()},uRad:{value:1}}});
-
-const matComp=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
-  uniform sampler2D tScene,tDof,tBloom,tDepth;
-  uniform float uNear,uFar,uFocus,uAp;
-  varying vec2 vUv;
-  float cocAt(vec2 uv){ float d=texture2D(tDepth,uv).x;
-    float dist=-((uNear*uFar)/((uFar-uNear)*d-uFar));
-    return clamp(abs(dist-uFocus)*uAp,0.0,1.0); }
-  void main(){
-    float coc=cocAt(vUv);
-    vec3 col=mix(texture2D(tScene,vUv).rgb, texture2D(tDof,vUv).rgb, coc);
-    col+=texture2D(tBloom,vUv).rgb*0.85;
-    gl_FragColor=vec4(col,1.0);
-  }`,
-  uniforms:{ tScene:{value:null},tDof:{value:null},tBloom:{value:null},tDepth:{value:null},
-    uNear:{value:0.4},uFar:{value:60},uFocus:{value:8.5},uAp:{value:0.5} }});
-
-const matGrade=new THREE.ShaderMaterial({vertexShader:QVERT,fragmentShader:`
-  uniform sampler2D tComp,tWide;
-  uniform vec2 uRes;
-  uniform float uTime,uGrain,uCA,uVig,uHal,uExpo;
-  uniform vec3 uTint;
-  varying vec2 vUv;
-  vec3 aces(vec3 x){ return clamp((x*(2.51*x+0.03))/(x*(2.43*x+0.59)+0.14),0.0,1.0); }
-  float hash12(vec2 p){ vec3 p3=fract(vec3(p.xyx)*0.1031); p3+=dot(p3,p3.yzx+33.33);
-    return fract((p3.x+p3.y)*p3.z); }
-  void main(){
-    vec2 uv=vUv; vec2 cc=uv-0.5; float r2=dot(cc,cc);
-    float ca=uCA*(0.35+r2*3.2);
-    vec2 off=cc*ca;
-    vec3 col;
-    col.r=texture2D(tComp,uv+off).r;
-    col.g=texture2D(tComp,uv).g;
-    col.b=texture2D(tComp,uv-off).b;
-    col+=texture2D(tWide,uv).rgb*uHal;
-    col*=uTint;
-    float vig=smoothstep(0.95,0.30,length(cc)*1.28);
-    col*=mix(1.0,vig,uVig);
-    col*=uExpo;
-    col=aces(col);
-    float luma=dot(col,vec3(0.299,0.587,0.114));
-    float g=hash12(uv*uRes+vec2(fract(uTime*13.73)*uRes.x, fract(uTime*7.31)*uRes.y));
-    col+=(g-0.5)*uGrain*(0.35+0.85*(1.0-luma));
-    col=pow(max(col,vec3(0.0)),vec3(0.4545));
-    gl_FragColor=vec4(col,1.0);
-  }`,
-  uniforms:{ tComp:{value:null},tWide:{value:null},
-    uRes:{value:new THREE.Vector2(curW,curH)},
-    uTime:{value:0},uGrain:{value:0.055},uCA:{value:0.0022},uVig:{value:0.55},uHal:{value:0.5},uExpo:{value:1.15},
-    uTint:{value:new THREE.Color(1,1,1)} }});
-
-function setPipelineSize(w,h){
-  curW=w; curH=h;
-  rtScene.setSize(w,h); rtComp.setSize(w,h);
-  rtH1.setSize(w>>1,h>>1); rtH2.setSize(w>>1,h>>1); rtH3.setSize(w>>1,h>>1);
-  rtQ1.setSize(w>>2,h>>2); rtQ2.setSize(w>>2,h>>2);
-  matGrade.uniforms.uRes.value.set(w,h);
+function buildField(){
+  stars.length=0; hearts.length=0;
+  for(let i=0;i<150;i++) stars.push(makeStar());
+  for(let i=0;i<14;i++)  hearts.push(makeHeart(true));
 }
-
-/* ============================================================
-   SCENE 3D (draw calls ≤ 6: points, lines, panels, emblem, core)
-============================================================ */
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(55,9/16,0.4,60);
-
-const N=45000;
-function buildShapes(){
-  const pos=new Float32Array(N*3), orb=new Float32Array(N*3), brain=new Float32Array(N*3),
-        tree=new Float32Array(N*3), coin=new Float32Array(N*3), gal=new Float32Array(N*3),
-        aRand=new Float32Array(N), aPart=new Float32Array(N), aSize=new Float32Array(N), aGroup=new Float32Array(N);
-  const d=[0,0,0];
-  const nodes=[];
-  for(let i=0;i<90;i++){ sphDir(d); nodes.push([d[0]*2.55,d[1]*2.55*1.32,d[2]*2.55]); }
-  const segs=[];
-  function rotAxis(v,ang){
-    const ax=[gauss(),gauss(),gauss()]; const L=Math.hypot(ax[0],ax[1],ax[2])||1;
-    const x=ax[0]/L,y=ax[1]/L,z=ax[2]/L,c=Math.cos(ang),s=Math.sin(ang),ic=1-c;
-    const [vx,vy,vz]=v;
-    return [ (c+x*x*ic)*vx+(x*y*ic-z*s)*vy+(x*z*ic+y*s)*vz,
-             (y*x*ic+z*s)*vx+(c+y*y*ic)*vy+(y*z*ic-x*s)*vz,
-             (z*x*ic-y*s)*vx+(z*y*ic+x*s)*vy+(c+z*z*ic)*vz ];
+function heartPath(c,k){
+  c.beginPath();
+  c.moveTo(0,6*k);
+  c.bezierCurveTo(0,2*k,-5*k,-4*k,-11*k,-4*k);
+  c.bezierCurveTo(-18*k,-4*k,-18*k,4*k,-18*k,4*k);
+  c.bezierCurveTo(-18*k,9*k,-13*k,14*k,0,21*k);
+  c.bezierCurveTo(13*k,14*k,18*k,9*k,18*k,4*k);
+  c.bezierCurveTo(18*k,4*k,18*k,-4*k,11*k,-4*k);
+  c.bezierCurveTo(5*k,-4*k,0,2*k,0,6*k);
+  c.closePath();
+}
+function updateParticles(dt,t){
+  const dm = REDUCED ? 0.25 : 1;
+  for(const s of stars){
+    s.nx += s.vnx*dt*dm; s.ny += s.vny*dt*dm;
+    if(s.nx<-0.02)s.nx=1.02; if(s.nx>1.02)s.nx=-0.02;
+    if(s.ny<-0.02)s.ny=1.02; if(s.ny>1.02)s.ny=-0.02;
   }
-  (function branch(px,py,pz,dir,len,depth){
-    const ex=px+dir[0]*len, ey=py+dir[1]*len, ez=pz+dir[2]*len;
-    segs.push([px,py,pz,ex,ey,ez,len,depth]);
-    if(depth>=5||len<0.14) return;
-    const kids=depth<2?3:2;
-    for(let k=0;k<kids;k++){
-      let nd=rotAxis(dir,0.45+rnd()*0.55);
-      nd[1]=Math.max(nd[1],0.12);
-      const L=Math.hypot(nd[0],nd[1],nd[2]);
-      branch(ex,ey,ez,[nd[0]/L,nd[1]/L,nd[2]/L],len*0.7,depth+1);
-    }
-  })(0,-2.6,0,[0,1,0],1.5,0);
-  let totLen=0; for(const s of segs) totLen+=s[6];
-  const cum=[]; let acc=0; for(const s of segs){ acc+=s[6]/totLen; cum.push(acc); }
-  const ringTilt=[0.55,1.05,1.45];
-  for(let i=0;i<N;i++){
-    const i3=i*3;
-    if(rnd()<0.3){ const nd=nodes[(rnd()*nodes.length)|0];
-      pos[i3]=nd[0]+gauss()*0.24; pos[i3+1]=nd[1]+gauss()*0.24; pos[i3+2]=nd[2]+gauss()*0.24;
-    } else { sphDir(d); const r=2.55*(0.9+rnd()*0.2);
-      pos[i3]=d[0]*r; pos[i3+1]=d[1]*r*1.32; pos[i3+2]=d[2]*r; }
-    if(rnd()<0.13){ const j=(rnd()*3)|0, th=rnd()*Math.PI*2, R=2.45+0.30*j;
-      const x=Math.cos(th)*R, y=0, z=Math.sin(th)*R;
-      const t=ringTilt[j], c=Math.cos(t), s=Math.sin(t);
-      const y2=y*c-z*s, z2=y*s+z*c; const zt=0.2*j, c2=Math.cos(zt), s2=Math.sin(zt);
-      orb[i3]=x*c2+z2*s2; orb[i3+1]=y2; orb[i3+2]=-x*s2+z2*c2; aPart[i]=1;
-    } else { sphDir(d);
-      const th=Math.acos(clamp(d[1],-1,1)), ph=Math.atan2(d[2],d[0]);
-      const r=2.02+0.07*Math.sin(th*22+3*Math.sin(ph*3));
-      orb[i3]=d[0]*r; orb[i3+1]=d[1]*r; orb[i3+2]=d[2]*r; }
-    sphDir(d);
-    const th=Math.acos(clamp(d[1],-1,1)), ph=Math.atan2(d[2],d[0]);
-    const rr=1.92*(1+0.105*Math.sin(6.5*th)*Math.sin(5.2*ph)+0.055*Math.sin(11*ph+2*th));
-    brain[i3]=d[0]*rr*1.28; brain[i3+1]=d[1]*rr*1.02+0.15; brain[i3+2]=d[2]*rr*1.12;
-    const pick=rnd(); let si=0; while(si<cum.length-1&&cum[si]<pick) si++;
-    const sg=segs[si], tt=rnd(), jg=0.05*(1+sg[7]*0.25);
-    tree[i3]  =sg[0]+(sg[3]-sg[0])*tt+gauss()*jg;
-    tree[i3+1]=sg[1]+(sg[4]-sg[1])*tt+gauss()*jg;
-    tree[i3+2]=sg[2]+(sg[5]-sg[2])*tt+gauss()*jg;
-    const cc=rnd();
-    if(cc<0.4){ const r=1.62*Math.sqrt(rnd()), a=rnd()*Math.PI*2;
-      coin[i3]=Math.cos(a)*r; coin[i3+1]=Math.sin(a)*r; coin[i3+2]=0.115;
-    } else if(cc<0.8){ const r=1.62*Math.sqrt(rnd()), a=rnd()*Math.PI*2;
-      coin[i3]=Math.cos(a)*r; coin[i3+1]=Math.sin(a)*r; coin[i3+2]=-0.115;
-    } else { const a=rnd()*Math.PI*2;
-      coin[i3]=Math.cos(a)*1.62; coin[i3+1]=Math.sin(a)*1.62; coin[i3+2]=(rnd()*2-1)*0.115; }
-    const arm=(rnd()*3)|0, tg=Math.pow(rnd(),0.72), rg=0.35+3.05*tg;
-    const ag=arm*2.0944+rg*1.75+gauss()*0.10*(1.4-tg);
-    gal[i3]=Math.cos(ag)*rg; gal[i3+1]=gauss()*0.14*(1.3-tg); gal[i3+2]=Math.sin(ag)*rg;
-    aRand[i]=rnd();
-    aSize[i]=rnd()<0.04? 2.0+rnd() : 0.7+rnd()*0.9;
-    const g=i%100; aGroup[i]= g<17?0 : g<34?1 : g<51?2 : g<68?3 : 4;
+  for(let i=0;i<hearts.length;i++){
+    const h=hearts[i];
+    h.ny -= h.vy*dt*dm;
+    if(h.ny < -0.05) hearts[i]=makeHeart(false);
   }
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  geo.setAttribute('aOrb',new THREE.BufferAttribute(orb,3));
-  geo.setAttribute('aBrain',new THREE.BufferAttribute(brain,3));
-  geo.setAttribute('aTree',new THREE.BufferAttribute(tree,3));
-  geo.setAttribute('aCoin',new THREE.BufferAttribute(coin,3));
-  geo.setAttribute('aGalaxy',new THREE.BufferAttribute(gal,3));
-  geo.setAttribute('aRand',new THREE.BufferAttribute(aRand,1));
-  geo.setAttribute('aPart',new THREE.BufferAttribute(aPart,1));
-  geo.setAttribute('aSize',new THREE.BufferAttribute(aSize,1));
-  geo.setAttribute('aGroup',new THREE.BufferAttribute(aGroup,1));
-  geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),30);
-  return geo;
-}
-const pUniforms={
-  uW:{value:[1,0,0,0,0]}, uFinale:{value:0}, uBirth:{value:0}, uImp:{value:0},
-  uDisperse:{value:0}, uExplode:{value:0}, uSuck:{value:0}, uCompress:{value:0},
-  uLock:{value:0}, uWave:{value:0}, uRingR:{value:0}, uRingA:{value:0},
-  uTime:{value:0}, uPix:{value:1000}, uSize:{value:0.024}, uJitter:{value:0.5},
-  uOrbit:{value:0}, uOpacity:{value:0}, uIntensity:{value:1.5}
-};
-const points=new THREE.Points(buildShapes(),new THREE.ShaderMaterial({
-  uniforms:pUniforms, transparent:true, depthWrite:true, depthTest:true,
-  blending:THREE.AdditiveBlending,
-  vertexShader:`
-    uniform float uW[5];
-    uniform float uFinale,uBirth,uImp,uDisperse,uExplode,uSuck,uCompress,uLock,uWave,uRingR,uRingA,uTime,uPix,uSize,uJitter,uOrbit;
-    attribute vec3 aOrb; attribute vec3 aBrain; attribute vec3 aTree; attribute vec3 aCoin; attribute vec3 aGalaxy;
-    attribute float aRand; attribute float aPart; attribute float aSize; attribute float aGroup;
-    varying vec3 vCol; varying float vA;
-    void main(){
-      vec3 P=position*uW[0]+aOrb*uW[1]+aBrain*uW[2]+aTree*uW[3]+aCoin*uW[4];
-      float g=aGroup;
-      vec3 local;
-      if(g<0.5) local=aOrb*0.9;
-      else if(g<1.5) local=aBrain*0.72;
-      else if(g<2.5) local=aTree*0.62;
-      else if(g<3.5) local=aCoin*0.85;
-      else local=aGalaxy*0.55;
-      float halo=step(3.5,g);
-      float ang=uOrbit*(0.65+0.12*g)+g*1.5707963;
-      float cr=mix(1.95,0.0,halo);
-      vec3 center=vec3(cos(ang)*cr, sin(ang+g*2.3)*0.5*(1.0-halo), sin(ang)*cr);
-      P=mix(P, center+local, uFinale);
-      vec3 wob=vec3(
-        sin(uTime*0.62+aRand*6.2831+P.y*1.7),
-        sin(uTime*0.81+aRand*12.56+P.x*1.9),
-        cos(uTime*0.73+aRand*9.42+P.z*1.8));
-      P+=wob*(0.018+0.05*uJitter);
-      float b=clamp((uBirth-aRand*0.35)/0.65,0.0,1.0); b=b*b*(3.0-2.0*b);
-      P=mix(vec3(0.0),P,b);
-      P*=mix(1.0,0.03+0.05*aRand,uImp);
-      P+=uDisperse*(vec3(0.0,0.8+aRand*1.5,0.0)+wob*0.35);
-      P*=1.0-0.30*uSuck;
-      P+=normalize(P+vec3(0.0001))*uExplode*(1.1+aRand*2.6);
-      P*=mix(1.0,0.13,uCompress);
-      P*=mix(1.0,mix(1.0,0.93,uLock),aPart);
-      vec4 mv=modelViewMatrix*vec4(P,1.0);
-      gl_Position=projectionMatrix*mv;
-      gl_PointSize=clamp(aSize*uSize*uPix/max(0.1,-mv.z),1.0,64.0);
-      vec3 C0=vec3(0.90,0.93,1.0); vec3 C1=vec3(0.20,0.85,1.0); vec3 C2=vec3(0.56,0.34,1.0);
-      vec3 C3=vec3(1.0,0.30,0.52); vec3 C4=vec3(1.0,0.76,0.30);
-      vec3 col=C0*uW[0]+C1*uW[1]+C2*uW[2]+C3*uW[3]+C4*uW[4];
-      vec3 gc=g<0.5?C1 : g<1.5?C2 : g<2.5?C3 : g<3.5?C4 : C0;
-      col=mix(col,gc,uFinale);
-      float pulse=0.5+0.5*sin(uTime*1.8+aRand*6.2831);
-      float glow=0.5+0.5*pulse*(0.35+0.65*uJitter);
-      glow+=uWave*(0.5+0.5*sin(P.y*2.6-uTime*4.2));
-      glow+=uLock*aPart*1.2+uImp*2.2+uExplode*1.6+uCompress*1.4;
-      glow+=uRingA*exp(-abs(length(P)-uRingR)*2.2)*2.0;
-      vCol=col*glow;
-      vA=b;
-    }`,
-  fragmentShader:`
-    uniform float uOpacity,uIntensity;
-    varying vec3 vCol; varying float vA;
-    void main(){
-      vec2 c=gl_PointCoord*2.0-1.0; float r2=dot(c,c);
-      if(r2>1.0) discard;
-      float a=exp(-r2*3.2)*(1.0-r2);
-      gl_FragColor=vec4(vCol*uIntensity, a*vA*uOpacity);
-    }`
-}));
-points.frustumCulled=false; points.renderOrder=0;
-scene.add(points);
-
-function buildLines(){
-  const nodes=[];
-  for(let i=0;i<90;i++){ const d=[0,0,0]; sphDir(d); nodes.push([d[0]*2.55,d[1]*2.55*1.32,d[2]*2.55]); }
-  const syn=[]; const seen=new Set();
-  for(let i=0;i<90;i++){
-    const dists=[];
-    for(let j=0;j<90;j++){ if(i===j) continue;
-      const dx=nodes[i][0]-nodes[j][0],dy=nodes[i][1]-nodes[j][1],dz=nodes[i][2]-nodes[j][2];
-      dists.push([dx*dx+dy*dy+dz*dz,j]); }
-    dists.sort((a,b)=>a[0]-b[0]);
-    for(let k=0;k<3;k++){ const j=dists[k][1];
-      if(dists[k][0]>2.9) break;
-      const key=Math.min(i,j)+'_'+Math.max(i,j);
-      if(seen.has(key)) continue; seen.add(key);
-      syn.push([...nodes[i],...nodes[j]]);
-      if(syn.length>=330) break; }
-    if(syn.length>=330) break;
-  }
-  const beams=[], panelPos=[], phases=[];
-  for(let i=0;i<64;i++){
-    const d=[0,0,0]; sphDir(d); d[1]*=1.6;
-    const L=Math.hypot(d[0],d[1],d[2]); const R=3.2+rnd()*0.6;
-    const p=[d[0]/L*R, d[1]/L*R-0.3, d[2]/L*R];
-    beams.push([0,-0.3,0,p[0],p[1],p[2]]);
-    panelPos.push(p); phases.push(rnd());
-  }
-  const total=syn.length+64;
-  const posArr=new Float32Array(total*6), aT=new Float32Array(total*2),
-        aPh=new Float32Array(total*2), aK=new Float32Array(total*2);
-  let o=0;
-  for(const s of syn){ posArr.set(s,o*6); aT[o*2]=0;aT[o*2+1]=1;
-    const ph=rnd(); aPh[o*2]=ph;aPh[o*2+1]=ph; aK[o*2]=0;aK[o*2+1]=0; o++; }
-  for(let i=0;i<64;i++){ posArr.set(beams[i],o*6); aT[o*2]=0;aT[o*2+1]=1;
-    aPh[o*2]=phases[i];aPh[o*2+1]=phases[i]; aK[o*2]=1;aK[o*2+1]=1; o++; }
-  const geo=new THREE.BufferGeometry();
-  geo.setAttribute('position',new THREE.BufferAttribute(posArr,3));
-  geo.setAttribute('aT',new THREE.BufferAttribute(aT,1));
-  geo.setAttribute('aPhase',new THREE.BufferAttribute(aPh,1));
-  geo.setAttribute('aKind',new THREE.BufferAttribute(aK,1));
-  geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(),30);
-  return {geo,panelPos,phases};
-}
-const lineData=buildLines();
-const lUniforms={ uTime:{value:0},uOp0:{value:0},uOp1:{value:0},uSpeed:{value:0.35},
-  uColSyn:{value:new THREE.Color(0.85,0.9,1)}, uColBeam:{value:new THREE.Color(1,0.35,0.55)}};
-const lines=new THREE.LineSegments(lineData.geo,new THREE.ShaderMaterial({
-  uniforms:lUniforms, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
-  vertexShader:`
-    attribute float aT; attribute float aPhase; attribute float aKind;
-    varying float vT; varying float vPh; varying float vK;
-    void main(){ vT=aT; vPh=aPhase; vK=aKind;
-      gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-  fragmentShader:`
-    uniform float uTime,uOp0,uOp1,uSpeed;
-    uniform vec3 uColSyn,uColBeam;
-    varying float vT; varying float vPh; varying float vK;
-    void main(){
-      float sp=mix(uSpeed*0.5, 0.55, vK);
-      float head=fract(uTime*sp+vPh);
-      float x=fract(vT-head);
-      float trail=exp(-x*9.0);
-      float i=0.06+trail*1.4;
-      vec3 col=mix(uColSyn,uColBeam,vK);
-      float op=mix(uOp0,uOp1,vK);
-      gl_FragColor=vec4(col*i*1.7, op);
-    }`
-}));
-lines.frustumCulled=false; lines.renderOrder=1; lines.visible=false;
-scene.add(lines);
-
-const panelGeo=new THREE.PlaneGeometry(0.30,0.38);
-panelGeo.setAttribute('aPhase',new THREE.InstancedBufferAttribute(new Float32Array(lineData.phases),1));
-const panelMat=new THREE.ShaderMaterial({
-  uniforms:{uTime:{value:0},uOp:{value:0}},
-  transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
-  vertexShader:`
-    attribute float aPhase; varying float vPh; varying vec2 vUv;
-    void main(){ vPh=aPhase; vUv=uv;
-      vec4 mv=modelViewMatrix*instanceMatrix*vec4(position,1.0);
-      gl_Position=projectionMatrix*mv; }`,
-  fragmentShader:`
-    uniform float uTime,uOp; varying float vPh; varying vec2 vUv;
-    void main(){
-      float p=fract(uTime*0.55+vPh);
-      float flash=exp(-pow((p-0.965)*26.0,2.0));
-      float mx=max(abs(vUv.x-0.5),abs(vUv.y-0.5));
-      float frame=smoothstep(0.5,0.42,mx);
-      vec3 col=mix(vec3(1.0,0.28,0.45),vec3(1.0,0.72,0.6),flash);
-      gl_FragColor=vec4(col*(0.6+flash*2.2), uOp*frame*(0.10+flash*1.5)); }`
-});
-const panels=new THREE.InstancedMesh(panelGeo,panelMat,64);
-{
-  const dummy=new THREE.Object3D();
-  for(let i=0;i<64;i++){
-    const p=lineData.panelPos[i];
-    dummy.position.set(p[0],p[1],p[2]);
-    dummy.lookAt(0,-0.3,0);
-    dummy.updateMatrix();
-    panels.setMatrixAt(i,dummy.matrix);
-  }
-  panels.instanceMatrix.needsUpdate=true;
-}
-panels.frustumCulled=false; panels.renderOrder=2; panels.visible=false;
-scene.add(panels);
-
-function glowTexture(){
-  const c=document.createElement('canvas'); c.width=c.height=256;
-  const x=c.getContext('2d');
-  const g=x.createRadialGradient(128,128,0,128,128,128);
-  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.25,'rgba(255,255,255,0.55)');
-  g.addColorStop(0.6,'rgba(255,255,255,0.12)'); g.addColorStop(1,'rgba(255,255,255,0)');
-  x.fillStyle=g; x.fillRect(0,0,256,256);
-  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace; return t;
-}
-const core=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTexture(),transparent:true,
-  depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,opacity:0}));
-core.renderOrder=4; core.visible=false; scene.add(core);
-
-let emblem;
-function buildEmblem(){
-  const c=document.createElement('canvas'); c.width=c.height=512;
-  const x=c.getContext('2d');
-  x.clearRect(0,0,512,512);
-  x.strokeStyle='rgba(255,222,160,0.9)'; x.lineWidth=5;
-  x.beginPath(); x.arc(256,256,196,0,Math.PI*2); x.stroke();
-  x.strokeStyle='rgba(255,222,160,0.35)'; x.lineWidth=2;
-  x.beginPath(); x.arc(256,256,176,0,Math.PI*2); x.stroke();
-  for(let i=0;i<48;i++){ const a=i/48*Math.PI*2;
-    x.save(); x.translate(256,256); x.rotate(a);
-    x.fillStyle='rgba(255,222,160,0.5)'; x.fillRect(-1.5,-206,3,12); x.restore(); }
-  x.font='700 268px "Unbounded"'; x.textAlign='center'; x.textBaseline='middle';
-  x.shadowColor='rgba(255,200,120,0.95)'; x.shadowBlur=44;
-  x.fillStyle='#ffe6bd'; x.fillText('A',256,278);
-  const t=new THREE.CanvasTexture(c); t.colorSpace=THREE.SRGBColorSpace;
-  emblem=new THREE.Mesh(new THREE.PlaneGeometry(1.15,1.15),
-    new THREE.MeshBasicMaterial({map:t,transparent:true,opacity:0,depthWrite:false,
-      blending:THREE.AdditiveBlending,side:THREE.DoubleSide}));
-  emblem.position.z=0.17; emblem.renderOrder=3; emblem.visible=false;
-  scene.add(emblem);
-}
-
-/* ============================================================
-   TEXT LAYER — tajam, setelah DOF+bloom, sebelum grade
-============================================================ */
-const textScene=new THREE.Scene();
-const HW=1.0, HH=16/9;
-const textCam=new THREE.OrthographicCamera(-HW,HW,HH,-HH,0.1,10);
-textCam.position.z=5;
-const cardGeo=new THREE.PlaneGeometry(1.72,1.075);
-
-function drawCard(cfg){
-  const LW=1024, LH=640, SS=2;
-  const c=document.createElement('canvas');
-  c.width=LW*SS; c.height=LH*SS;
-  const x=c.getContext('2d');
-  x.scale(SS,SS);
-  x.clearRect(0,0,LW,LH);
-  x.textAlign='center'; x.textBaseline='middle';
-  const fit=(text,fam,weight,maxW,px)=>{
-    do{ x.font=`${weight} ${px}px "${fam}"`; if(x.measureText(text).width<=maxW) break; px-=4; }while(px>26);
-    return px; };
-  if(cfg.lockup){
-    const p1=fit('AXION','Unbounded',700,880,168);
-    x.font=`700 ${p1}px "Unbounded"`;
-    x.shadowColor='rgba(255,255,255,0.9)'; x.shadowBlur=30; x.fillStyle='#fff';
-    x.fillText('AXION',512,196); x.shadowBlur=0; x.fillText('AXION',512,196);
-    x.font='300 62px "Unbounded"'; try{x.letterSpacing='30px';}catch(e){}
-    x.shadowColor='rgba(255,255,255,0.7)'; x.shadowBlur=16; x.fillStyle='rgba(255,255,255,0.97)';
-    x.fillText('NEURALIS',526,318); x.shadowBlur=0; x.fillText('NEURALIS',526,318);
-    try{x.letterSpacing='0px';}catch(e){}
-    x.fillStyle='rgba(255,255,255,0.55)'; x.fillRect(442,382,140,3);
-    const p2=fit(cfg.tag,'Unbounded',400,880,46);
-    x.font=`400 ${p2}px "Unbounded"`;
-    x.shadowColor='rgba(255,255,255,0.6)'; x.shadowBlur=14; x.fillStyle='rgba(255,255,255,0.92)';
-    x.fillText(cfg.tag,512,444); x.shadowBlur=0; x.fillText(cfg.tag,512,444);
-    if(cfg.hud){ x.font='500 24px "IBM Plex Mono"'; try{x.letterSpacing='7px';}catch(e){}
-      x.fillStyle='rgba(255,255,255,0.5)'; x.fillText(cfg.hud,512,540); }
-  } else if(cfg.logo){
-    const p1=fit('AXION','Unbounded',700,880,168);
-    x.font=`700 ${p1}px "Unbounded"`;
-    x.shadowColor='rgba(255,255,255,0.9)'; x.shadowBlur=30; x.fillStyle='#fff';
-    x.fillText('AXION',512,238); x.shadowBlur=0; x.fillText('AXION',512,238);
-    x.font='300 62px "Unbounded"'; try{x.letterSpacing='30px';}catch(e){}
-    x.shadowColor='rgba(255,255,255,0.7)'; x.shadowBlur=16; x.fillStyle='rgba(255,255,255,0.97)';
-    x.fillText('NEURALIS',526,362); x.shadowBlur=0; x.fillText('NEURALIS',526,362);
-    try{x.letterSpacing='0px';}catch(e){}
-    x.font='500 27px "IBM Plex Mono"'; try{x.letterSpacing='7px';}catch(e){}
-    x.fillStyle='rgba(255,255,255,0.6)'; x.fillText(cfg.hud,512,486);
-  } else {
-    x.font='500 27px "IBM Plex Mono"'; try{x.letterSpacing='8px';}catch(e){}
-    x.fillStyle='rgba(255,255,255,0.62)'; x.fillText(cfg.hud,512,88);
-    try{x.letterSpacing='0px';}catch(e){}
-    const p1=fit(cfg.title,'Unbounded',700,930,116);
-    x.font=`700 ${p1}px "Unbounded"`;
-    x.shadowColor='rgba(255,255,255,0.85)'; x.shadowBlur=26; x.fillStyle='#fff';
-    x.fillText(cfg.title,512,292); x.shadowBlur=0; x.fillText(cfg.title,512,292);
-    x.fillStyle='rgba(255,255,255,0.55)'; x.fillRect(442,372,140,3);
-    const p2=fit(cfg.tag,'Unbounded',400,900,46);
-    x.font=`400 ${p2}px "Unbounded"`;
-    x.shadowColor='rgba(255,255,255,0.55)'; x.shadowBlur=12; x.fillStyle='rgba(255,255,255,0.92)';
-    x.fillText(cfg.tag,512,452); x.shadowBlur=0; x.fillText(cfg.tag,512,452);
-  }
-  const t=new THREE.CanvasTexture(c);
-  t.colorSpace=THREE.SRGBColorSpace;
-  t.generateMipmaps=true;
-  t.minFilter=THREE.LinearMipmapLinearFilter;
-  t.magFilter=THREE.LinearFilter;
-  t.anisotropy=MAX_ANISO;
-  return t;
-}
-function makeTextMat(tex,color){
-  return new THREE.ShaderMaterial({
-    uniforms:{uMap:{value:tex},uColor:{value:new THREE.Color(...color)},
-      uOpacity:{value:0},uReveal:{value:0},uGlitch:{value:0},uSweep:{value:-1},uTime:{value:0}},
-    transparent:true, depthWrite:false, depthTest:false, blending:THREE.AdditiveBlending,
-    vertexShader:`varying vec2 vUv; void main(){ vUv=uv;
-      gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-    fragmentShader:`
-      uniform sampler2D uMap; uniform vec3 uColor;
-      uniform float uOpacity,uReveal,uGlitch,uSweep,uTime;
-      varying vec2 vUv;
-      float h21(vec2 p){ p=fract(p*vec2(234.34,435.345)); p+=dot(p,p+34.23); return fract(p.x*p.y); }
-      void main(){
-        vec2 uv=vUv;
-        if(uGlitch>0.001){
-          float row=floor(uv.y*42.0); float fr=floor(uTime*20.0);
-          float gate=step(0.72,h21(vec2(row,fr+7.0)));
-          uv.x+=(h21(vec2(row,fr))-0.5)*0.14*uGlitch*gate;
-        }
-        vec4 tx=texture2D(uMap,uv);
-        float edge=h21(vec2(floor(uv.y*48.0),17.0))*0.16;
-        float rev=uReveal*1.28-0.14;
-        float mask=smoothstep(rev+0.04+edge, rev-0.06+edge, uv.x);
-        float sw=exp(-pow((uv.x-uSweep)*7.5,2.0))*step(0.0,uSweep)*step(uSweep,1.3);
-        vec3 col=uColor*tx.rgb*(1.0+sw*3.0);
-        gl_FragColor=vec4(col*1.35, tx.a*uOpacity*mask);
-      }`
-  });
-}
-const cards={}; const cardBaseY={};
-function buildCards(){
-  const defs=[
-    ['intro', drawCard({logo:1,hud:'// THE ECOSYSTEM BEGINS'}), [0.93,0.95,1], 0.08],
-    ['acc',   drawCard({hud:'01 · IDENTITY LAYER',title:'AXION ACCOUNT',tag:'Satu Identitas. Semua Layanan.'}), [0.35,0.9,1], -0.47],
-    ['ai',    drawCard({hud:'02 · COGNITION CORE',title:'AXION AI',tag:'Kecerdasan di Dalam Setiap Sistem.'}), [0.7,0.55,1], -0.47],
-    ['ads',   drawCard({hud:'03 · SIGNAL NETWORK',title:'AXION ADS',tag:'Sinyal yang Tepat. Audiens yang Tepat.'}), [1,0.55,0.68], -0.47],
-    ['coin',  drawCard({hud:'04 · VALUE PROTOCOL',title:'AXION COIN',tag:'Mata Uang Ekosistem.'}), [1,0.82,0.5], -0.47],
-    ['fin',   drawCard({lockup:1,tag:'One Ecosystem. Infinite Signals.',hud:'// TRANSMISSION COMPLETE'}), [0.95,0.96,1], 0.08],
-  ];
-  let idx=0;
-  for(const [name,tex,col,y] of defs){
-    const m=new THREE.Mesh(cardGeo,makeTextMat(tex,col));
-    m.position.set(0,y,0); m.renderOrder=10; m.visible=false;
-    textScene.add(m); cards[name]=m; cardBaseY[name]={y,ph:idx*1.7}; idx++;
-  }
-}
-
-/* ============================================================
-   GSAP TIMELINE — 40.00s deterministik
-============================================================ */
-const TL=gsap.timeline({paused:true});
-function buildTimeline(){
-  TL.set(S,{ringR:0},0);
-  TL.to(S,{coreOp:0.9,coreScale:0.34,corePulse:1,duration:0.9,ease:'power2.out'},0.15);
-  TL.to(S,{pOp:1,duration:0.7,ease:'power1.out'},0.95);
-  TL.to(S,{birth:1,duration:2.6,ease:'expo.out'},1.0);
-  TL.to(S,{corePulse:0,duration:1.2},1.4);
-  TL.to(S,{lineOp0:0.85,duration:1.6,ease:'power2.inOut'},2.3);
-  TL.to(S,{camR:4.0,duration:6.0,ease:'power1.inOut'},0);
-  TL.to(S,{camY:0.22,duration:6.0,ease:'power1.inOut'},0);
-  TL.to(S,{focus:4.6,duration:2.8,ease:'power2.inOut'},2.6);
-  TL.to(S,{introOp:1,introGlitch:0,duration:1.4,ease:'expo.out'},3.5);
-  TL.to(S,{introOp:0,duration:0.7,ease:'power2.in'},5.25);
-  TL.to(S,{imp:1,duration:0.7,ease:'power3.in'},5.3);
-  TL.to(S,{lineOp0:0,duration:0.5},5.35);
-  TL.to(S,{intensity:2.6,ca:2.4,duration:0.35,ease:'power3.in'},5.6);
-  TL.to(S,{w0:0,w1:1,duration:0.9,ease:'power2.inOut'},5.85);
-  TL.to(S,{imp:0,duration:1.0,ease:'expo.out'},6.0);
-  TL.to(S,{intensity:1.5,ca:1.0,duration:0.9,ease:'power2.out'},6.05);
-  TL.to(S,{coreOp:0.35,coreScale:0.5,duration:1.0},6.0);
-  TL.to(S,{tintR:0.96,tintG:1.03,tintB:1.06,duration:1.2},6.2);
-  TL.to(S,{camA:0.85,camR:4.6,duration:3.4,ease:'power2.inOut'},6.0);
-  TL.to(S,{camY:0.5,duration:3.0,ease:'power2.inOut'},6.2);
-  TL.to(S,{focus:4.6,duration:1.2},6.3);
-  TL.to(S,{accOp:1,duration:1.1,ease:'expo.out'},7.2);
-  TL.to(S,{lock:1,duration:0.5,ease:'back.out(2.2)'},9.5);
-  TL.to(S,{intensity:2.1,duration:0.22,ease:'power3.out'},9.5);
-  TL.to(S,{intensity:1.5,duration:0.8,ease:'power2.out'},9.75);
-  TL.to(S,{camR:4.15,focus:4.15,duration:1.1,ease:'power3.inOut'},9.5);
-  TL.to(S,{accOp:0,duration:0.8,ease:'power2.in'},12.3);
-  TL.to(S,{disperse:1,duration:0.9,ease:'power2.in'},12.35);
-  TL.to(S,{w1:0,w2:1,duration:0.9,ease:'power2.inOut'},13.0);
-  TL.to(S,{disperse:0,duration:0.9,ease:'power2.out'},13.25);
-  TL.to(S,{tintR:1.0,tintG:0.97,tintB:1.06,duration:1.0},13.0);
-  TL.to(S,{lineOp0:0.9,duration:1.0},13.4);
-  TL.to(S,{lsr:0.55,lsg:0.4,lsb:1.0,duration:1.2},13.4);
-  TL.to(S,{lineSpeed:0.8,duration:1.5},13.5);
-  TL.to(S,{wave:1,duration:1.2,ease:'power2.inOut'},14.0);
-  TL.to(S,{aiOp:1,duration:1.1,ease:'expo.out'},14.3);
-  TL.to(S,{camA:0.15,duration:2.4,ease:'power2.inOut'},13.2);
-  TL.to(S,{camR:2.35,camY:0.55,duration:4.6,ease:'power2.inOut'},15.0);
-  TL.to(S,{fov:62,duration:4.0,ease:'power2.inOut'},15.2);
-  TL.to(S,{focus:2.4,ap:0.7,duration:4.0,ease:'power2.inOut'},15.2);
-  TL.to(S,{jitter:0.7,duration:2.0},14.0);
-  TL.to(S,{suck:1,duration:1.4,ease:'power3.in'},18.0);
-  TL.to(S,{wave:0,duration:0.6},19.0);
-  TL.to(S,{aiOp:0,duration:0.7,ease:'power2.in'},19.2);
-  TL.to(S,{explode:1,suck:0,duration:0.5,ease:'power3.out'},19.5);
-  TL.to(S,{intensity:2.8,ca:2.6,duration:0.3,ease:'power3.out'},19.5);
-  TL.to(S,{camR:3.6,duration:1.0,ease:'expo.out'},19.6);
-  TL.to(S,{w2:0,w3:1,duration:0.9,ease:'power2.inOut'},20.1);
-  TL.to(S,{explode:0,duration:1.0,ease:'power2.out'},20.15);
-  TL.to(S,{intensity:1.5,ca:1.0,duration:1.0},19.9);
-  TL.to(S,{tintR:1.05,tintG:0.97,tintB:1.0,duration:1.0},20.4);
-  TL.to(S,{lineOp1:1,duration:1.0,ease:'power2.out'},20.6);
-  TL.to(S,{panelsOp:1,duration:1.2,ease:'power2.out'},21.0);
-  TL.to(S,{adsOp:1,duration:1.1,ease:'expo.out'},21.6);
-  TL.to(S,{camR:6.6,camA:-0.12,camY:1.25,duration:4.2,ease:'power2.inOut'},20.5);
-  TL.to(S,{fov:50,duration:3.5,ease:'power2.inOut'},20.8);
-  TL.to(S,{focus:6.6,ap:0.5,duration:3.0},21.0);
-  TL.to(S,{roll:0.035,duration:2.2,ease:'power2.inOut'},22.0);
-  TL.to(S,{roll:0,duration:2.4,ease:'power2.inOut'},24.4);
-  TL.to(S,{adsOp:0,duration:0.8,ease:'power2.in'},26.0);
-  TL.to(S,{lineOp1:0,panelsOp:0,duration:1.0},26.2);
-  TL.to(S,{suck:1,duration:1.2,ease:'power3.in'},26.3);
-  TL.to(S,{w3:0,w4:1,duration:0.8,ease:'power2.inOut'},27.2);
-  TL.to(S,{compress:1,duration:0.7,ease:'power3.in'},27.3);
-  TL.to(S,{suck:0,duration:0.6},27.9);
-  TL.to(S,{tintR:1.04,tintG:1.0,tintB:0.93,duration:1.0},27.6);
-  TL.to(S,{camR:1.6,camY:0.15,duration:1.2,ease:'power3.in'},26.9);
-  TL.to(S,{fov:46,duration:1.2},26.9);
-  TL.to(S,{focus:1.6,ap:0.9,duration:1.0},27.2);
-  TL.to(S,{compress:0,duration:1.1,ease:'expo.out'},28.0);
-  TL.to(S,{intensity:2.4,ca:2.0,duration:0.4,ease:'power3.out'},28.0);
-  TL.to(S,{intensity:1.6,ca:1.0,duration:0.9},28.4);
-  TL.set(S,{coinRot:-4.712},28.25);
-  TL.to(S,{coinRot:0,duration:1.7,ease:'back.out(1.3)'},28.4);
-  TL.to(S,{emblemOp:1,duration:0.8,ease:'power2.out'},28.6);
-  TL.to(S,{camR:4.3,duration:4.2,ease:'power2.out'},28.6);
-  TL.to(S,{fov:52,duration:3.5},28.8);
-  TL.to(S,{focus:4.3,ap:0.75,duration:3.5},28.8);
-  TL.to(S,{jitter:0.3,duration:1.0},28.5);
-  TL.to(S,{coinOp:1,duration:1.0,ease:'expo.out'},29.8);
-  TL.to(S,{coinOp:0,duration:0.8,ease:'power2.in'},33.0);
-  TL.to(S,{ringR:8,ringA:1.2,duration:1.0,ease:'power2.out'},33.2);
-  TL.to(S,{ringA:0,duration:0.8},33.9);
-  TL.to(S,{emblemOp:0,duration:0.6},33.3);
-  TL.set(S,{ringR:0},35.0);
-  TL.to(S,{w4:0,duration:1.2,ease:'power2.inOut'},34.0);
-  TL.to(S,{finale:1,duration:1.8,ease:'power2.inOut'},33.8);
-  TL.to(S,{tintR:1,tintG:1,tintB:1,duration:1.2},34.2);
-  TL.to(S,{coreOp:1,coreScale:1.05,duration:1.8,ease:'power2.out'},34.2);
-  TL.to(S,{finOp:1,duration:1.6,ease:'power2.out'},35.2);
-  TL.to(S,{finSweep:1.35,duration:2.2,ease:'power2.inOut'},35.3);
-  TL.to(S,{camR:7.6,camA:0.25,camY:0.35,duration:6.0,ease:'power1.inOut'},34.0);
-  TL.to(S,{fov:48,duration:6.0,ease:'power1.inOut'},34.0);
-  TL.to(S,{focus:7.0,ap:0.42,duration:3.0},34.5);
-  TL.to(S,{drift:0.03,duration:3.0},35.0);
-  TL.to(S,{grain:0.085,duration:4.0},36.0);
-  TL.to(S,{jitter:0.45,duration:2.0},34.5);
-}
-
-/* ============================================================
-   RENDER FRAME (deterministik)
-============================================================ */
-const uwArr=pUniforms.uW.value;
-function updateScene(){
-  const tt=S.t;
-  camera.fov=S.fov; camera.updateProjectionMatrix();
-  const nx=n1(tt,0.9,1.3)*S.drift, ny=n1(tt,0.73,5.1)*S.drift,
-        nz2=n1(tt,0.82,9.3)*S.drift, nr=n1(tt,0.6,7.7);
-  const cx=Math.sin(S.camA)*S.camR+S.tx, cz=Math.cos(S.camA)*S.camR+S.tz, cy=S.camY+S.ty;
-  camera.position.set(cx+nx, cy+ny*0.8, cz+nz2*0.6);
-  camera.lookAt(S.tx+nx*0.35, S.ty+ny*0.35, S.tz);
-  camera.rotation.z += S.roll + nr*0.0035*(S.drift/0.06);
-  pUniforms.uPix.value = curH/(2*Math.tan(camera.fov*Math.PI/360));
-  uwArr[0]=S.w0; uwArr[1]=S.w1; uwArr[2]=S.w2; uwArr[3]=S.w3; uwArr[4]=S.w4;
-  pUniforms.uFinale.value=S.finale; pUniforms.uBirth.value=S.birth; pUniforms.uImp.value=S.imp;
-  pUniforms.uDisperse.value=S.disperse; pUniforms.uExplode.value=S.explode; pUniforms.uSuck.value=S.suck;
-  pUniforms.uCompress.value=S.compress; pUniforms.uLock.value=S.lock; pUniforms.uWave.value=S.wave;
-  pUniforms.uRingR.value=S.ringR; pUniforms.uRingA.value=S.ringA;
-  pUniforms.uTime.value=tt; pUniforms.uJitter.value=S.jitter;
-  pUniforms.uOrbit.value=tt*0.24; pUniforms.uOpacity.value=S.pOp; pUniforms.uIntensity.value=S.intensity;
-  points.rotation.y=S.coinRot;
-  lines.visible=(S.lineOp0+S.lineOp1)>0.002;
-  lUniforms.uTime.value=tt; lUniforms.uOp0.value=S.lineOp0; lUniforms.uOp1.value=S.lineOp1;
-  lUniforms.uSpeed.value=S.lineSpeed;
-  lUniforms.uColSyn.value.setRGB(S.lsr,S.lsg,S.lsb);
-  panels.visible=S.panelsOp>0.002;
-  panelMat.uniforms.uTime.value=tt; panelMat.uniforms.uOp.value=S.panelsOp;
-  core.visible=S.coreOp>0.002;
-  const cs=S.coreScale*2.2*(1+S.corePulse*0.3*Math.sin(tt*7.0));
-  core.scale.set(cs,cs,1); core.material.opacity=S.coreOp;
-  emblem.visible=S.emblemOp>0.002;
-  emblem.material.opacity=S.emblemOp; emblem.rotation.y=S.coinRot;
-  const cardState=[
-    ['intro',S.introOp,S.introOp,S.introGlitch,-1],
-    ['acc',S.accOp,S.accOp,0,-1],
-    ['ai',S.aiOp,S.aiOp,0,-1],
-    ['ads',S.adsOp,S.adsOp,0,-1],
-    ['coin',S.coinOp,S.coinOp,0,-1],
-    ['fin',S.finOp,S.finOp,0,S.finSweep],
-  ];
-  for(const [name,op,rev,gl,sw] of cardState){
-    const m=cards[name];
-    m.visible=op>0.001;
-    if(m.visible){
-      const b=cardBaseY[name];
-      m.position.y=b.y+0.006*Math.sin(tt*0.6+b.ph);
-      const u=m.material.uniforms;
-      u.uOpacity.value=op; u.uReveal.value=rev; u.uGlitch.value=gl; u.uSweep.value=sw; u.uTime.value=tt;
+  if(!REDUCED){
+    meteorCountdown -= dt;
+    if(meteorCountdown<=0){
+      meteors.push({nx:rand(-0.1,0.72), ny:rand(-0.05,0.25),
+                    vnx:rand(0.19,0.31), vny:rand(0.15,0.29), life:1});
+      meteorCountdown = rand(2.5,6);
     }
   }
-  matComp.uniforms.uFocus.value=S.focus; matComp.uniforms.uAp.value=S.ap;
-  const g=matGrade.uniforms;
-  g.uTime.value=tt; g.uGrain.value=S.grain; g.uCA.value=0.0022*S.ca;
-  g.uTint.value.setRGB(S.tintR,S.tintG,S.tintB);
+  for(let i=meteors.length-1;i>=0;i--){
+    const m=meteors[i];
+    m.nx += m.vnx*dt; m.ny += m.vny*dt; m.life -= dt*0.55;
+    if(m.life<=0 || m.nx>1.1 || m.ny>1.1) meteors.splice(i,1);
+  }
 }
-function renderFrame(t){
-  TL.seek(t,false);
-  S.t=t;
-  updateScene();
-  renderer.setRenderTarget(rtScene); renderer.render(scene,camera);
-  matBlur.uniforms.uRad.value=2.0;
-  matBlur.uniforms.tSrc.value=rtScene.texture; matBlur.uniforms.uDir.value.set(1,0);
-  matBlur.uniforms.uTexel.value.set(1/curW,1/curH); runPass(matBlur,rtH2);
-  matBlur.uniforms.uRad.value=2.8;
-  matBlur.uniforms.tSrc.value=rtH2.texture; matBlur.uniforms.uDir.value.set(0,1);
-  matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtH3);
-  matBright.uniforms.tSrc.value=rtScene.texture; runPass(matBright,rtH1);
-  matBlur.uniforms.uRad.value=1.4;
-  matBlur.uniforms.tSrc.value=rtH1.texture; matBlur.uniforms.uDir.value.set(1,0);
-  matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtH2);
-  matBlur.uniforms.tSrc.value=rtH2.texture; matBlur.uniforms.uDir.value.set(0,1); runPass(matBlur,rtH1);
-  matBlur.uniforms.uRad.value=2.5;
-  matBlur.uniforms.tSrc.value=rtH1.texture; matBlur.uniforms.uDir.value.set(1,0);
-  matBlur.uniforms.uTexel.value.set(2/curW,2/curH); runPass(matBlur,rtQ1);
-  matBlur.uniforms.tSrc.value=rtQ1.texture; matBlur.uniforms.uDir.value.set(0,1);
-  matBlur.uniforms.uTexel.value.set(4/curW,4/curH); runPass(matBlur,rtQ2);
-  matComp.uniforms.tScene.value=rtScene.texture;
-  matComp.uniforms.tDof.value=rtH3.texture;
-  matComp.uniforms.tBloom.value=rtH1.texture;
-  matComp.uniforms.tDepth.value=rtScene.depthTexture;
-  runPass(matComp,rtComp);
-  renderer.setRenderTarget(rtComp);
-  renderer.autoClearColor=false;
-  renderer.render(textScene,textCam);
-  renderer.autoClearColor=true;
-  matGrade.uniforms.tComp.value=rtComp.texture;
-  matGrade.uniforms.tWide.value=rtQ2.texture;
-  renderer.setRenderTarget(null); runPass(matGrade,null);
-}
-
-/* ============================================================
-   CONSOLE UI — hanya proses yang ditampilkan
-============================================================ */
-const SCENES=[
-  {name:'GENESIS — AXION NEURALIS', dur:6},
-  {name:'AXION ACCOUNT',            dur:7},
-  {name:'AXION AI',                 dur:7},
-  {name:'AXION ADS',                dur:7},
-  {name:'AXION COIN',               dur:7},
-  {name:'FINALE — ONE SIGNAL',      dur:6},
-];
-function sceneAt(t){ return t<6?0: t<13?1: t<20?2: t<27?3: t<34?4:5; }
-const stripEl=$('strip'); const segEls=[];
-SCENES.forEach((sc,i)=>{
-  const d=document.createElement('div');
-  d.className='seg'; d.style.flexGrow=sc.dur;
-  d.innerHTML=`S${i}<small>${sc.name.split(' — ')[0]}</small>`;
-  stripEl.appendChild(d); segEls.push(d);
-});
-function fmtTC(t){ const m=Math.floor(t/60), s=t-m*60; return String(m).padStart(2,'0')+':'+s.toFixed(1).padStart(4,'0'); }
-function fmtDur(sec){ sec=Math.max(0,Math.round(sec)); return String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0'); }
-let logStart=0;
-function log(msg,cls){
-  const el=document.createElement('div');
-  if(cls) el.className=cls;
-  const t=((performance.now()-logStart)/1000);
-  el.innerHTML=`<span class="t">[+${fmtDur(t)}]</span>${msg}`;
-  $('log').appendChild(el);
-  while($('log').children.length>90) $('log').firstChild.remove();
-  $('log').scrollTop=$('log').scrollHeight;
-}
-function setPhase(html,sub){ $('phase').innerHTML=html; $('sub').textContent=sub; }
-function setState(txt){ $('stState').textContent=txt; }
-function setDot(mode){ $('dot').className='dot '+(mode||''); }
-function uiBusy(b){
-  $('selRes').disabled=b; $('selFps').disabled=b;
-  $('btnCancel').classList.toggle('hidden',!b);
-  $('btnStart').classList.add('hidden'); $('btnSave').classList.add('hidden'); $('btnAgain').classList.add('hidden');
+function drawParticles(c,w,h,t){
+  /* bintang berkelap-kelip */
+  for(const s of stars){
+    const x=s.nx*w, y=s.ny*h, r=s.rf*h;
+    const tw = REDUCED ? 0.75 : (0.5+0.5*Math.sin(t*s.sp+s.ph));
+    const a = s.a*(0.3+0.7*tw);
+    c.globalAlpha=a; c.fillStyle=s.col;
+    c.beginPath(); c.arc(x,y,r,0,Math.PI*2); c.fill();
+    if(r>1.15){ /* kilau silang bintang besar */
+      const L=r*3.2*tw+1;
+      c.globalAlpha=a*0.5; c.strokeStyle=s.col; c.lineWidth=0.6;
+      c.beginPath();
+      c.moveTo(x-L,y); c.lineTo(x+L,y);
+      c.moveTo(x,y-L); c.lineTo(x,y+L);
+      c.stroke();
+    }
+  }
+  c.globalCompositeOperation='lighter';
+  /* hati melayang */
+  for(const h of hearts){
+    const sPx=h.hf*h;
+    const sway=Math.sin(t*h.w+h.ph)*h.amp*w;
+    c.save();
+    c.translate(h.nx*w+sway, h.ny*h);
+    c.rotate(Math.sin(t*h.w+h.ph)*0.28);
+    c.globalAlpha=h.a*(0.75+0.25*Math.sin(t*1.8+h.ph));
+    c.fillStyle = h.gold ? 'rgba(245,196,105,.9)' : 'rgba(220,20,60,.9)';
+    heartPath(c,sPx/30);
+    c.fill();
+    c.restore();
+  }
+  /* bintang jatuh */
+  for(const m of meteors){
+    const x=m.nx*w, y=m.ny*h;
+    const tx=x-m.vnx*0.16*w, ty=y-m.vny*0.16*h;
+    const g=c.createLinearGradient(x,y,tx,ty);
+    g.addColorStop(0,'rgba(255,244,224,'+(0.95*m.life)+')');
+    g.addColorStop(0.4,'rgba(245,196,105,'+(0.6*m.life)+')');
+    g.addColorStop(1,'rgba(220,20,60,0)');
+    c.globalAlpha=1; c.strokeStyle=g; c.lineWidth=1.6;
+    c.beginPath(); c.moveTo(x,y); c.lineTo(tx,ty); c.stroke();
+  }
+  c.globalCompositeOperation='source-over';
+  c.globalAlpha=1;
 }
 
-/* ============================================================
-   EXPORT ENGINE — full background
-============================================================ */
-function codecFor(W,fps){
-  if(W<=1080) return 'avc1.640028';
-  return fps>=60 ? 'avc1.640034' : 'avc1.640033';
+/* ================= PROGRESS BAR (digambar di canvas) ================= */
+function roundRect(c,x,y,w2,h2,r){
+  const rr=Math.min(r,w2/2,h2/2);
+  c.beginPath();
+  c.moveTo(x+rr,y);
+  c.arcTo(x+w2,y,x+w2,y+h2,rr);
+  c.arcTo(x+w2,y+h2,x,y+h2,rr);
+  c.arcTo(x,y+h2,x,y,rr);
+  c.arcTo(x,y,x+w2,y,rr);
+  c.closePath();
 }
-let running=false, cancelled=false, finalUrl=null, finalBlob=null;
-function triggerDownload(){
-  if(!finalUrl) return;
+function heartbeatEnv(t){ /* dua detak per siklus 1.5 dtk */
+  const tt=t%1.5;
+  const bump=(ctr,wd)=>Math.exp(-((tt-ctr)*(tt-ctr))/(wd*wd));
+  return 0.9*bump(0.15,0.09)+0.5*bump(0.6,0.09);
+}
+function drawBar(c,w,h,now,t){
+  const u=h/900;
+  const barW=Math.min(w*0.62,470*u);
+  const gap=18*u, pctW=64*u;
+  const total=barW+gap+pctW;
+  const x0=(w-total)/2, y=h*0.5;
+  const p=progress/100;
+  const th=Math.max(2.5,3*u);
+
+  const since=(now-pulseAt)/340;
+  const boost=since<1 ? (1-since) : 0;          // denyut tiap bertambah
+  const hb=finished ? heartbeatEnv(t) : 0;       // detak setelah selesai
+  const glow=1+boost*1.2+hb*0.9;
+
+  /* track */
+  c.fillStyle='rgba(255,255,255,0.08)';
+  roundRect(c,x0,y-th/2,barW,th,th/2); c.fill();
+
+  if(p>0.004){
+    const fw=barW*p;
+    /* fill merah menyala */
+    c.save();
+    c.shadowColor='rgba(220,20,60,'+Math.min(1,0.55+0.25*glow)+')';
+    c.shadowBlur=(9+9*boost+10*hb)*u+6*u;
+    const grad=c.createLinearGradient(x0,0,x0+barW,0);
+    grad.addColorStop(0,'#8b0000');
+    grad.addColorStop(0.45,'#dc143c');
+    grad.addColorStop(0.78,'#ff4d6d');
+    grad.addColorStop(1,'#ffd98a');
+    c.fillStyle=grad;
+    roundRect(c,x0,y-th/2,fw,th,th/2); c.fill();
+    c.restore();
+    /* kilatan denyut */
+    if(boost>0){
+      c.save();
+      c.globalCompositeOperation='lighter';
+      c.globalAlpha=boost*0.5;
+      c.fillStyle='#ffb3c0';
+      roundRect(c,x0,y-th/2,fw,th,th/2); c.fill();
+      c.restore();
+    }
+    /* titik cahaya di ujung */
+    c.save();
+    c.globalCompositeOperation='lighter';
+    const tg=c.createRadialGradient(x0+fw,y,0,x0+fw,y,9*u);
+    tg.addColorStop(0,'rgba(255,255,255,.95)');
+    tg.addColorStop(0.38,'rgba(255,157,176,.9)');
+    tg.addColorStop(0.7,'rgba(220,20,60,.85)');
+    tg.addColorStop(1,'rgba(220,20,60,0)');
+    c.fillStyle=tg;
+    c.beginPath(); c.arc(x0+fw,y,9*u*(1+boost*0.7+hb*0.3),0,Math.PI*2); c.fill();
+    c.restore();
+  }
+
+  /* persentase */
+  const scale=1+boost*0.2+hb*0.06;
+  c.save();
+  c.translate(x0+barW+gap,y);
+  c.scale(scale,scale);
+  c.textBaseline='middle'; c.textAlign='left';
+  c.shadowColor='rgba(220,20,60,.55)'; c.shadowBlur=12*u;
+  c.font='600 '+Math.round(26*u)+'px Rajdhani, sans-serif';
+  c.fillStyle='#ffe9ec';
+  const num=String(Math.round(progress));
+  c.fillText(num,0,0);
+  const nw=c.measureText(num).width;
+  c.font='600 '+Math.round(14*u)+'px Rajdhani, sans-serif';
+  c.fillStyle='rgba(245,196,105,.85)';
+  c.fillText('%',nw+3*u,1*u);
+  c.restore();
+}
+
+/* ================= SIMULASI LOADING ================= */
+function resetRun(now){
+  progress=0; finished=false; pulseAt=-1e9;
+  runStart=now; nextTick=now+350;
+}
+function sim(now){
+  if(finished || now<nextTick) return;
+  let inc=rand(1.6,4.4);
+  if(Math.random()<0.12) inc+=rand(3,6);      // lonjakan dramatis
+  progress=Math.min(100,progress+inc);
+  pulseAt=now;
+  if(progress>=100){finished=true;return;}
+  if(now-runStart>4100){progress=100;finished=true;return;} /* pengaman ±3–4 dtk */
+  nextTick=now+rand(55,130);
+}
+
+/* ================= KANVAS REKAMAN (1080p, offscreen) ================= */
+const REC_W=1920, REC_H=1080, REC_FPS=30, REC_BITRATE=10_000_000;
+const recCanvas=document.createElement('canvas');
+recCanvas.width=REC_W; recCanvas.height=REC_H;
+const recCtx=recCanvas.getContext('2d');
+let recVig=null;
+
+function drawRecBackdrop(c){
+  c.fillStyle='#0a0a0f'; c.fillRect(0,0,REC_W,REC_H);
+  let g=c.createRadialGradient(REC_W*0.12,REC_H*0.1,0,REC_W*0.12,REC_H*0.1,Math.max(REC_W,REC_H)*0.62);
+  g.addColorStop(0,'rgba(139,0,0,0.5)'); g.addColorStop(1,'rgba(139,0,0,0)');
+  c.fillStyle=g; c.fillRect(0,0,REC_W,REC_H);
+  g=c.createRadialGradient(REC_W*0.9,REC_H*0.92,0,REC_W*0.9,REC_H*0.92,Math.max(REC_W,REC_H)*0.55);
+  g.addColorStop(0,'rgba(220,20,60,0.26)'); g.addColorStop(1,'rgba(220,20,60,0)');
+  c.fillStyle=g; c.fillRect(0,0,REC_W,REC_H);
+}
+function getRecVignette(){
+  if(recVig) return recVig;
+  const g=recCtx.createRadialGradient(REC_W/2,REC_H/2,REC_H*0.28,REC_W/2,REC_H/2,Math.hypot(REC_W,REC_H)*0.53);
+  g.addColorStop(0,'rgba(2,2,5,0)');
+  g.addColorStop(0.62,'rgba(3,3,7,0.45)');
+  g.addColorStop(1,'rgba(2,2,5,0.88)');
+  recVig=g; return g;
+}
+function renderRecFrame(now,t){
+  drawRecBackdrop(recCtx);
+  drawParticles(recCtx,REC_W,REC_H,t);
+  recCtx.fillStyle=getRecVignette();
+  recCtx.fillRect(0,0,REC_W,REC_H);
+  drawBar(recCtx,REC_W,REC_H,now,t);
+}
+
+/* ================= PEREKAMAN MP4 (tanpa audio) ================= */
+let recording=false, finalizing=false;
+let recMode=null, encoder=null, muxer=null, mr=null, mrChunks=[];
+let frameIdx=0, recStart=0, recHoldStart=0, lastLblPct=-1;
+
+const CODECS=['avc1.640028','avc1.4d0028','avc1.42001f','avc1.64001f','avc1.640032','avc1.42E01E'];
+async function pickCodec(){
+  for(const c of CODECS){
+    try{
+      const s=await VideoEncoder.isConfigSupported({
+        codec:c,width:REC_W,height:REC_H,bitrate:REC_BITRATE,framerate:REC_FPS});
+      if(s.supported) return c;
+    }catch(e){}
+  }
+  return null;
+}
+function setBtnState(s,pct){
+  dlBtn.classList.toggle('rec',s==='rec');
+  dlBtn.disabled=(s==='rec'||s==='proc');
+  if(s==='idle')      dlLabel.textContent='Download MP4';
+  else if(s==='rec'){ if(pct!==lastLblPct){ dlLabel.textContent='Merekam… '+pct+'%'; lastLblPct=pct; } }
+  else if(s==='proc') dlLabel.textContent='Memproses Video…';
+  else if(s==='saved')dlLabel.textContent='Tersimpan ✓';
+  else if(s==='error')dlLabel.textContent='Gagal — Coba Lagi';
+}
+function showNote(txt){ dlNote.textContent=txt||''; }
+function saveBlob(blob,name){
+  const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=finalUrl; a.download='AXION-Neuralis-Teaser-9x16.mp4';
+  a.href=url; a.download=name;
   document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
 }
-async function startProduction(){
-  if(running) return;
-  cancelled=false;
-  logStart=performance.now();
-  $('log').innerHTML='';
-  setDot('run'); setState('SETUP');
-  setPhase('MENYIAPKAN <span class="dim">PIPELINE…</span>','FEATURE DETECTION & KONFIGURASI ENCODER');
-  uiBusy(true);
-  $('btnSave').classList.add('hidden'); $('btnAgain').classList.add('hidden');
-  $('barFill').style.width='0%'; $('barPct').textContent='0%';
-  segEls.forEach(s=>s.className='seg');
 
-  const W=+$('selRes').value, H=Math.round(W*16/9), fps=+$('selFps').value;
-  const codec=codecFor(W,fps);
-  const bitrate=W>=2160?60000000:24000000;
-  const total=40*fps;
-  $('cfgLabel').textContent=`${W}×${H} · ${fps}FPS · ${(bitrate/1e6).toFixed(0)} MBPS · ${codec}`;
-  $('stOut').textContent=`${W>=2160?'4K':'1080p'}·${fps}`;
-  log(`TARGET — ${W}×${H} @ ${fps}FPS · ${(bitrate/1e6).toFixed(0)} Mbps · H.264 HIGH · TANPA AUDIO`,'hi');
+async function startRecording(){
+  if(recording||finalizing) return;
+  showNote(''); lastLblPct=-1;
+  let mode=null;
 
-  let encoder=null, muxer=null, encErr=null, failedFrame=-1;
-  try{
-    if(typeof window.VideoEncoder==='undefined') throw new Error('WEBCODECS TIDAK TERSEDIA — GUNAKAN GOOGLE CHROME / EDGE DESKTOP');
-    let muxMod;
-    try{ muxMod=await import('mp4-muxer'); }
-    catch(e){ throw new Error('LIBRARY mp4-muxer GAGAL DIMUAT — PERIKSA KONEKSI CDN'); }
-    const { Muxer, ArrayBufferTarget }=muxMod;
-
-    let support;
-    try{ support=await VideoEncoder.isConfigSupported({codec,width:W,height:H,framerate:fps,bitrate}); }
-    catch(e){ throw new Error('GAGAL MENGUJI CODEC: '+e.message); }
-    if(!support.supported) throw new Error(`CODEC ${codec} ${W}×${H}@${fps}FPS TIDAK DIDUKUNG DEVICE INI`);
-    log(`CODEC DIDUKUNG — ${codec}`,'ok');
-
-    /* canvas buffer = persis config encoder (canvas tetap tersembunyi) */
-    renderer.setPixelRatio(1);
-    renderer.setSize(W,H,false);
-    setPipelineSize(W,H);
-    log(`RENDER TARGET AKTIF — BUFFER ${W}×${H} (BACKGROUND)`,'hi');
-
-    muxer=new Muxer({ target:new ArrayBufferTarget(),
-      video:{codec:'avc',width:W,height:H,frameRate:fps},
-      fastStart:'in-memory', firstTimestampBehavior:'offset' });
-    encoder=new VideoEncoder({
-      output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta),
-      error:e=>{ encErr=e; }
-    });
-    encoder.configure({codec,width:W,height:H,bitrate,framerate:fps});
-    log('VIDEOENCODER CONFIGURED','ok');
-    setState('RENDER + ENCODE');
-
-    const frameDur=Math.round(1000000/fps);
-    const t0=performance.now();
-    let lastScene=-1;
-    for(let f=0;f<total;f++){
-      if(cancelled) throw new Error('DIBATALKAN PENGGUNA');
-      failedFrame=f;
-      if(encErr) throw encErr;
-      if(encoder.state==='closed'||encoder.state==='errored') throw new Error('ENCODER TERTUTUP SEBELUM SELESAI');
-
-      renderFrame(f/fps);
-
-      const vf=new VideoFrame(canvas,{timestamp:Math.round(f*1000000/fps),duration:frameDur});
-      encoder.encode(vf,{keyFrame:(f%(fps*2))===0});
-      vf.close();
-
-      while(encoder.encodeQueueSize>4){ await nextTick(); if(encErr) throw encErr; if(cancelled) throw new Error('DIBATALKAN PENGGUNA'); }
-      if((f+1)%240===0){ await encoder.flush(); log(`FLUSH ENCODER — FRAME ${f+1}/${total}`,'warn'); }
-
-      const tSec=f/fps, sc=sceneAt(tSec);
-      if(sc!==lastScene){
-        lastScene=sc;
-        setPhase(`SCENE ${sc} · <span class="dim">${SCENES[sc].name}</span>`,`SEGMENT ${sc+1}/6 — MERENDER & ENCODE DI LATAR BELAKANG`);
-        segEls.forEach((el,i)=>el.className='seg'+(i<sc?' done':i===sc?' active':''));
-        log(`→ SCENE ${sc} — ${SCENES[sc].name}`,'hi');
-      }
-      if(f%2===0){
-        const pct=(f+1)/total*100;
-        const el=(performance.now()-t0)/1000;
-        const eta=el/(f+1)*(total-f-1);
-        const spd=(f+1)/el;
-        $('barFill').style.width=pct.toFixed(2)+'%';
-        $('barPct').textContent=pct.toFixed(1)+'%';
-        $('stFrame').textContent=`${f+1}/${total}`;
-        $('stTime').textContent=`${fmtTC(tSec)} / 40.0`;
-        $('stQueue').textContent=encoder.encodeQueueSize;
-        $('stSpeed').textContent=spd.toFixed(1)+' fps';
-        $('stElapsed').textContent=fmtDur(el);
-        $('stEta').textContent='±'+fmtDur(eta);
-        if(f%10===0) document.title=`AXION · ${pct.toFixed(0)}% · FRAME ${f+1}/${total}`;
-        await nextTick();
-      }
+  /* Jalur utama: WebCodecs + MP4 muxer (video/mp4 asli, tanpa audio) */
+  if(typeof VideoEncoder!=='undefined' && typeof Mp4Muxer!=='undefined'){
+    const codec=await pickCodec();
+    if(codec){
+      try{
+        muxer=new Mp4Muxer.Muxer({
+          target:new Mp4Muxer.ArrayBufferTarget(),
+          video:{codec:'avc',width:REC_W,height:REC_H},
+          fastStart:'in-memory',
+          firstTimestampBehavior:'offset'
+        });
+        encoder=new VideoEncoder({
+          output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta),
+          error:e=>console.error('Encoder error:',e)
+        });
+        encoder.configure({codec,width:REC_W,height:REC_H,bitrate:REC_BITRATE,framerate:REC_FPS});
+        mode='webcodecs';
+      }catch(e){ console.warn(e); mode=null; }
     }
-    failedFrame=-1;
-    segEls.forEach(el=>el.className='seg done');
-    setPhase('FINALISASI <span class="dim">MUXER…</span>','FLUSH ENCODER → MP4');
-    setState('FINALIZE');
-    log('FLUSH ENCODER FINAL…','warn');
-    await encoder.flush();
-    encoder.close(); encoder=null;
-    muxer.finalize();
-    const buf=muxer.target.buffer;
-    if(!buf||buf.byteLength===0) throw new Error('MUXER MENGHASILKAN BUFFER 0 BYTE');
-    finalBlob=new Blob([buf],{type:'video/mp4'});
-    if(finalUrl) URL.revokeObjectURL(finalUrl);
-    finalUrl=URL.createObjectURL(finalBlob);
-    triggerDownload();
-    const el=(performance.now()-t0)/1000;
-    $('barFill').style.width='100%'; $('barPct').textContent='100%';
-    $('stFrame').textContent=`${total}/${total}`; $('stTime').textContent='40.0 / 40.0';
-    $('stQueue').textContent='0'; $('stElapsed').textContent=fmtDur(el); $('stEta').textContent='00:00';
-    setPhase('SELESAI · <span class="dim">SINYAL TERKIRIM</span>',`AXION-Neuralis-Teaser-9x16.mp4 · ${(finalBlob.size/1048576).toFixed(1)} MB — UNDUH OTOMATIS DIJALANKAN`);
-    setState('DONE'); setDot('on');
-    log(`SELESAI — ${(finalBlob.size/1048576).toFixed(1)} MB DALAM ${fmtDur(el)} · FILE DIUNDUH OTOMATIS`,'ok');
-    document.title='AXION NEURALIS · RENDER SELESAI ✓';
-    $('btnSave').classList.remove('hidden'); $('btnAgain').classList.remove('hidden');
-  }catch(e){
-    const msg=e&&e.message?e.message:String(e);
-    if(msg==='DIBATALKAN PENGGUNA'){
-      setPhase('DIBATALKAN <span class="dim">PENGGUNA</span>','PIPELINE DIHENTIKAN');
-      setState('CANCELLED'); setDot('');
-      log('RENDER DIBATALKAN','err');
-    }else{
-      const where=failedFrame>=0?` — GAGAL DI FRAME ${failedFrame+1}/${total}`:'';
-      setPhase('ERROR <span class="dim">PIPELINE</span>',msg);
-      setState('ERROR'); setDot('');
-      log('EXPORT GAGAL'+where+': '+msg,'err');
+  }
+  /* Jalur cadangan: MediaRecorder dari kanvas rekaman */
+  if(!mode){
+    if(typeof MediaRecorder==='undefined'){ showNote('Browser tidak mendukung perekaman video.'); return; }
+    const mimes=['video/mp4;codecs=avc1.42E01E','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
+    const mime=mimes.find(m=>{ try{return MediaRecorder.isTypeSupported(m);}catch(e){return false;} });
+    if(!mime){ showNote('Browser tidak mendukung perekaman video.'); return; }
+    mrChunks=[];
+    mr=new MediaRecorder(recCanvas.captureStream(REC_FPS),{mimeType:mime,videoBitsPerSecond:REC_BITRATE});
+    mr.ondataavailable=e=>{ if(e.data&&e.data.size) mrChunks.push(e.data); };
+    mr.start(250);
+    mode='mr';
+    if(!mime.includes('mp4')) showNote('Perangkat tidak mendukung MP4 — disimpan sebagai WebM.');
+  }
+
+  recMode=mode;
+  recording=true;
+  frameIdx=0; recHoldStart=0;
+  recStart=performance.now();
+  resetRun(recStart);                    // rekam satu siklus penuh 0 → 100%
+  setBtnState('rec',0);
+}
+
+function pumpRecording(now,t){
+  renderRecFrame(now,t);
+  if(recMode==='webcodecs' && encoder && encoder.state==='ready'){
+    const target=Math.floor((now-recStart)*REC_FPS/1000);
+    let guard=0;
+    while(frameIdx<=target && guard<4 && encoder.encodeQueueSize<90){
+      const ts=Math.round(frameIdx*1e6/REC_FPS);
+      const fr=new VideoFrame(recCanvas,{timestamp:ts,duration:Math.round(1e6/REC_FPS)});
+      encoder.encode(fr,{keyFrame:frameIdx%(REC_FPS*2)===0});
+      fr.close();
+      frameIdx++; guard++;
     }
-    try{ if(encoder&&encoder.state!=='closed') encoder.close(); }catch(_){}
-    $('btnStart').classList.remove('hidden');
-    $('btnStart').textContent='▶ MULAI PRODUKSI';
-  }finally{
-    running=false;
-    uiBusy(false);
-    $('btnAgain').classList.remove('hidden');
+    if(target-frameIdx>45) frameIdx=target;   // lompati gap bila tab sempat terhenti
+  }
+  /* label persentase perekaman */
+  let pct;
+  if(!recHoldStart) pct=Math.min(96,Math.round(progress*0.85));
+  else pct=Math.min(99,Math.round(85+((now-recHoldStart)/1400)*14));
+  setBtnState('rec',pct);
+
+  /* akhir rekaman: tahan 1.4 dtk pada 100% */
+  if(progress>=100){
+    if(!recHoldStart) recHoldStart=now;
+    if(now-recHoldStart>=1400) finishRecording();
+  } else if(now-recStart>7500){
+    progress=100;
   }
 }
 
-$('btnStart').addEventListener('click',startProduction);
-$('btnAgain').addEventListener('click',startProduction);
-$('btnSave').addEventListener('click',triggerDownload);
-$('btnCancel').addEventListener('click',()=>{ cancelled=true; log('PERMINTAAN BATAL DITERIMA…','warn'); });
-window.addEventListener('pagehide',()=>{
+async function finishRecording(){
+  if(finalizing||!recording) return;
+  recording=false; finalizing=true;
+  setBtnState('proc');
   try{
-    renderer.dispose();
-    [rtScene,rtH1,rtH2,rtH3,rtQ1,rtQ2,rtComp].forEach(r=>r.dispose());
-    if(finalUrl) URL.revokeObjectURL(finalUrl);
-  }catch(e){}
+    let blob, fname='axion-neuralis-loading';
+    if(recMode==='webcodecs'){
+      await encoder.flush();
+      encoder.close(); encoder=null;
+      muxer.finalize();
+      blob=new Blob([muxer.target.buffer],{type:'video/mp4'});
+      muxer=null; fname+='.mp4';
+    }else{
+      await new Promise(res=>{ mr.onstop=res; mr.stop(); });
+      const mt=mr.mimeType||'video/webm';
+      blob=new Blob(mrChunks,{type:mt});
+      fname+= mt.includes('mp4') ? '.mp4' : '.webm';
+      mr=null;
+    }
+    saveBlob(blob,fname);
+    setBtnState('saved');
+  }catch(err){
+    console.error(err);
+    setBtnState('error');
+    showNote('Terjadi kesalahan saat memproses video.');
+  }
+  finalizing=false;
+  setTimeout(()=>setBtnState('idle'),2200);
+}
+
+dlBtn.addEventListener('click',startRecording);
+
+/* ================= UKURAN & LOOP UTAMA ================= */
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=window.innerWidth; H=window.innerHeight;
+  canvas.width=Math.round(W*DPR);
+  canvas.height=Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+
+let lastT=performance.now();
+function frame(now){
+  requestAnimationFrame(frame);
+  let dt=(now-lastT)/1000; lastT=now;
+  if(dt>0.06) dt=0.06;
+  const t=now/1000;
+
+  sim(now);
+  updateParticles(dt,t);
+
+  /* layar */
+  ctx.clearRect(0,0,W,H);
+  drawParticles(ctx,W,H,t);
+  drawBar(ctx,W,H,now,t);
+
+  /* perekaman berjalan di latar */
+  if(recording) pumpRecording(now,t);
+}
+
+/* init — tunggu font siap agar teks persentase di canvas benar */
+Promise.race([
+  Promise.all([
+    document.fonts.load('600 26px Rajdhani'),
+    document.fonts.load('600 14px Rajdhani')
+  ]),
+  new Promise(r=>setTimeout(r,1500))
+]).then(()=>{
+  resize();
+  buildField();
+  window.addEventListener('resize',resize);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) lastT=performance.now(); });
+  resetRun(performance.now());
+  requestAnimationFrame(frame);
 });
 
-/* ============================================================
-   BOOT — auto-start produksi di latar belakang
-============================================================ */
-async function boot(){
-  try{
-    await Promise.all([
-      document.fonts.load('700 100px "Unbounded"'),
-      document.fonts.load('400 100px "Unbounded"'),
-      document.fonts.load('300 100px "Unbounded"'),
-      document.fonts.load('500 32px "IBM Plex Mono"'),
-      document.fonts.load('400 32px "IBM Plex Mono"'),
-    ]).catch(()=>{});
-    log('FONT DIMUAT — UNBOUNDED + IBM PLEX MONO','ok');
-    buildEmblem();   log('GEOMETRI PARTIKEL — 45.000 PTS · 6 MORPH TARGET · 1 DRAW CALL','hi');
-    buildCards();    log('TEXT LAYER — 6 KARTU SUPERSAMPLED 2048px · ANISOTROPY MAX','hi');
-    buildTimeline(); log('TIMELINE GSAP — 40.00s DETERMINISTIK','hi');
-    renderFrame(0);
-    $('boot').classList.add('off');
-    log('PIPELINE SIAP — AUTO-START PRODUKSI DI LATAR BELAKANG','ok');
-    running=true;                 // guard: cegah double start
-    running=false;
-    startProduction();            // semua berjalan di belakang layar; UI hanya menampilkan proses
-  }catch(e){
-    document.querySelector('#boot .s').textContent='ERROR: '+e.message;
-  }
-}
-boot();
+})();
 </script>
 </body>
 </html>
