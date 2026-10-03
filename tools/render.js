@@ -8,11 +8,14 @@ const { pathToFileURL } = require('url');
 
 const DEFAULTS = {
   fps: 60,
-  duration: 5,        // detik
+  duration: 5,
   aspect: 16 / 9,
-  target2K: 2560,     // sisi terpanjang
-  maxDuration: 60,    // batas aman detik
+  target2K: 2560,
+  maxDuration: 60,
 };
+
+const NAV_TIMEOUT = 30_000;   // per-navigasi
+const PROTO_TIMEOUT = 180_000; // CDP call timeout
 
 const log = (...a) => console.log('[render]', ...a);
 
@@ -35,7 +38,6 @@ function computeSize(aspect, longest) {
     h = longest;
     w = Math.round(longest * aspect);
   }
-  // H.264 butuh dimensi genap
   w = Math.max(2, Math.floor(w / 2) * 2);
   h = Math.max(2, Math.floor(h / 2) * 2);
   return { width: w, height: h };
@@ -51,61 +53,59 @@ async function readMeta(page) {
     const body = document.body;
     const attr = (n) =>
       (html && html.getAttribute(n)) || (body && body.getAttribute(n)) || null;
-
     return {
-      aspect:    get('video-aspect')   || attr('data-video-aspect'),
-      width:     get('video-width')    || attr('data-video-width'),
-      height:    get('video-height')   || attr('data-video-height'),
-      duration:  get('video-duration') || attr('data-video-duration'),
-      fps:       get('video-fps')      || attr('data-video-fps'),
-      background:get('video-background')|| attr('data-video-background'),
+      aspect:     get('video-aspect')    || attr('data-video-aspect'),
+      width:      get('video-width')     || attr('data-video-width'),
+      height:     get('video-height')    || attr('data-video-height'),
+      duration:   get('video-duration')  || attr('data-video-duration'),
+      fps:        get('video-fps')       || attr('data-video-fps'),
+      background: get('video-background')|| attr('data-video-background'),
     };
   });
 }
 
+/**
+ * Advance virtual time by `ms`. Resolves when Chromium emits
+ * `Emulation.virtualTimeBudgetExpired`, or after a real-time safety cap.
+ */
 function advanceVirtualTime(client, ms) {
   return new Promise((resolve, reject) => {
     let done = false;
-    const onExpire = () => {
+    const finish = (err) => {
       if (done) return;
       done = true;
       client.off('Emulation.virtualTimeBudgetExpired', onExpire);
       clearTimeout(timer);
-      resolve();
+      err ? reject(err) : resolve();
     };
+    const onExpire = () => finish();
     client.on('Emulation.virtualTimeBudgetExpired', onExpire);
 
-    const timer = setTimeout(() => {
-      if (done) return;
-      done = true;
-      client.off('Emulation.virtualTimeBudgetExpired', onExpire);
-      // Jangan reject — anggap selesai agar tidak stuck
-      resolve();
-    }, 15000);
+    // safety cap: kalau 15s real time tidak ada kabar, lanjut saja
+    const timer = setTimeout(() => finish(), 15_000);
 
     client
-      .send('Emulation.setVirtualTimePolicy', { policy: 'advance', budget: ms })
-      .catch((err) => {
-        if (done) return;
-        done = true;
-        client.off('Emulation.virtualTimeBudgetExpired', onExpire);
-        clearTimeout(timer);
-        reject(err);
-      });
+      .send('Emulation.setVirtualTimePolicy', {
+        policy: 'advance',
+        budget: ms,
+        maxVirtualTimeTaskStarvationCount: 10_000,
+      })
+      .catch((err) => finish(err));
   });
 }
 
 async function renderOne(browser, htmlPath, outputPath) {
   const page = await browser.newPage();
-  await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+  page.setDefaultNavigationTimeout(NAV_TIMEOUT);
+  page.setDefaultTimeout(NAV_TIMEOUT);
 
   const fileUrl = pathToFileURL(htmlPath).href;
 
-  // Pass 1: load normal untuk baca meta
-  await page.goto(fileUrl, { waitUntil: 'load', timeout: 60_000 });
+  // ─── PASS 1: load normal untuk baca meta ──────────────────────────────
+  await page.setViewport({ width: 1920, height: 1080, deviceScaleFactor: 1 });
+  await page.goto(fileUrl, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
   const meta = await readMeta(page);
 
-  // Hitung aspect
   let aspect = DEFAULTS.aspect;
   if (meta.aspect) {
     const p = parseRatio(meta.aspect);
@@ -133,29 +133,42 @@ async function renderOne(browser, htmlPath, outputPath) {
   }
 
   const size = computeSize(aspect, DEFAULTS.target2K);
-  await page.setViewport({ width: size.width, height: size.height, deviceScaleFactor: 1 });
-
-  // Set virtual time SEBELUM reload
-  const client = await page.createCDPSession();
-  await client.send('Emulation.setVirtualTimePolicy', {
-    policy: 'pause',
-    initialVirtualTime: 0,
+  await page.setViewport({
+    width: size.width,
+    height: size.height,
+    deviceScaleFactor: 1,
   });
 
-  await page.reload({ waitUntil: 'load', timeout: 60_000 });
+  // ─── PASS 2: reload dengan virtual time ───────────────────────────────
+  const client = await page.createCDPSession();
 
-  // Beri waktu nyata untuk font/network (virtual time tetap paused)
-  await new Promise((r) => setTimeout(r, 800));
+  // ★ Kunci perbaikan: JANGAN 'pause' dulu.
+  // 'pauseIfNetworkFetchesPending' membiarkan virtual time jalan selama
+  // ada network request pending → event `load` tetap bisa fire.
+  // Begitu network idle, virtual time otomatis pause.
+  await client.send('Emulation.setVirtualTimePolicy', {
+    policy: 'pauseIfNetworkFetchesPending',
+    budget: 60_000,                    // upper bound virtual ms untuk load
+    maxVirtualTimeTaskStarvationCount: 10_000,
+  });
 
-  // Background solid (hindari transparan jadi hitam / artefak)
+  await page.goto(fileUrl, {
+    waitUntil: 'domcontentloaded',     // load bisa tidak fire di beberapa lib
+    timeout: NAV_TIMEOUT,
+  });
+
+  // Beri waktu real (bukan virtual) supaya font/image decode selesai.
+  // Virtual time tetap paused, jadi tidak memajukan animasi.
+  await new Promise((r) => setTimeout(r, 500));
+
   const bg = meta.background || '#000000';
   await page.evaluate((c) => {
     document.documentElement.style.background = c;
     if (document.body) document.body.style.background = c;
   }, bg);
 
-  // Siapkan ffmpeg
-  const ffmpegArgs = [
+  // ─── ffmpeg ───────────────────────────────────────────────────────────
+  const ffmpeg = spawn('ffmpeg', [
     '-hide_banner',
     '-loglevel', 'error',
     '-y',
@@ -171,12 +184,11 @@ async function renderOne(browser, htmlPath, outputPath) {
     '-movflags', '+faststart',
     '-an',
     outputPath,
-  ];
-  const ffmpeg = spawn('ffmpeg', ffmpegArgs, { stdio: ['pipe', 'inherit', 'inherit'] });
+  ], { stdio: ['pipe', 'inherit', 'inherit'] });
 
   const ffmpegDone = new Promise((resolve, reject) => {
     ffmpeg.on('close', (code) =>
-      code === 0 ? resolve() : reject(new Error(`ffmpeg exit code ${code}`))
+      code === 0 ? resolve() : reject(new Error(`ffmpeg exit ${code}`))
     );
     ffmpeg.on('error', reject);
   });
@@ -257,6 +269,7 @@ async function main() {
 
   const browser = await puppeteer.launch({
     headless: true,
+    protocolTimeout: PROTO_TIMEOUT,        // ★ tambahan penting
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
