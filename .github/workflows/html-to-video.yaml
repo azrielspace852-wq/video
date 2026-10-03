@@ -4,7 +4,8 @@ name: HTML → MP4 Renderer
 # into a silent MP4: 60 fps, 2K (long side 2560px), aspect ratio auto-detected
 # from the HTML. One video per matrix job (parallel). Results are uploaded as
 # a single MP4 artifact when there is exactly one file, or as videos.zip when
-# there are several.
+# there are several. Every output MP4 is digitally signed (ECDSA + SHA-256);
+# see "Digital signature" below.
 
 on:
   workflow_dispatch:
@@ -37,12 +38,16 @@ on:
         description: "GitHub job timeout per video (must exceed max duration)"
         default: "60"
         required: false
+      sign_outputs:
+        description: "Digitally sign the resulting MP4s (ECDSA + SHA-256)"
+        default: "true"
+        required: false
   push:
     paths:
       - "video/**"
       - "videos/**"
       - ".github/workflows/html-to-video.yml"
-      - "scripts/render_html_to_video.py"
+      - "scripts/**"
 
 permissions:
   contents: read
@@ -70,10 +75,14 @@ jobs:
         id: set
         run: |
           set -euo pipefail
+          # -not -name '._*' excludes macOS AppleDouble metadata files that
+          # end up in repos after a macOS zip/unzip round-trip.
           FILES=$(find . -type f \( -path '*/video/*' -o -path '*/videos/*' \) \
                  -name '*.html' \
+                 -not -name '._*' \
                  -not -path '*/node_modules/*' \
-                 -not -path '*/.git/*' | sort)
+                 -not -path '*/.git/*' \
+                 -not -path '*/rendered/*' | sort)
 
           if [ -z "$FILES" ]; then
             echo "::error::No .html files found under any video/ or videos/ folder in the repository."
@@ -106,14 +115,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install ffmpeg + Xvfb
+      # FIX (was: x11-utils only). `xset` lives in x11-xserver-utils; without
+      # it the renderer aborted immediately with "Required command not found:
+      # xset". x11-utils (xdpyinfo etc.) is kept for debugging.
+      - name: Install ffmpeg + Xvfb + xset
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg xvfb x11-utils
+          sudo apt-get install -y -qq ffmpeg xvfb x11-utils x11-xserver-utils
 
       - name: Install Playwright + Chromium
         run: |
-          pip install --quiet playwright
+          pip install --quiet -r scripts/requirements.txt
           playwright install --with-deps chromium
 
       - name: Render HTML → MP4
@@ -131,13 +143,16 @@ jobs:
             --default-duration "${{ inputs.default_duration_seconds || '10' }}" \
             --max-duration "$MAX_DUR_SEC"
 
+      # `warn` (not `error`) so ffmpeg *.log sidecars and partial outputs are
+      # always uploaded — essential for debugging a failed render. The render
+      # step itself already marks the job failed on error.
       - name: Upload rendered part
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: part-${{ strategy.job-index }}
           path: rendered/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
 
   # ------------------------------------------------------------------- package
@@ -146,7 +161,12 @@ jobs:
     needs: [discover, render]
     if: always() && needs.discover.outputs.count > 0
     runs-on: ubuntu-latest
+    env:
+      SIGNING_PRIVATE_KEY: ${{ secrets.SIGNING_PRIVATE_KEY }}
+      SIGN_KEY_CACHE: ${{ runner.temp }}/axion-signing-key.pem
     steps:
+      - uses: actions/checkout@v4
+
       - name: Download all rendered parts
         continue-on-error: true
         uses: actions/download-artifact@v4
@@ -154,6 +174,17 @@ jobs:
           pattern: part-*
           merge-multiple: true
           path: all
+
+      # Sign each MP4 individually BEFORE zipping, so every *.mp4 carries its
+      # own detached .sig (even inside videos.zip).
+      - name: Sign every MP4 (per-file)
+        if: inputs.sign_outputs != 'false'
+        run: |
+          if ls all/*.mp4 >/dev/null 2>&1; then
+            bash scripts/sign_outputs.sh all/ "AXION Neuralis"
+          else
+            echo "::warning::No MP4 files to sign."
+          fi
 
       - name: Build final artifact
         id: build
@@ -178,19 +209,32 @@ jobs:
           fi
 
           if [ "$COUNT" -eq 1 ] && [ "$N_MP4" -eq 1 ]; then
-            # Single video: attach the raw MP4 (no zip).
+            # Single video: attach the raw MP4 + its signature + manifest.
             cp "$MP4S" final/
+            cp "${MP4S}.sig" final/ 2>/dev/null || true
+            cp all/*.manifest.json final/ 2>/dev/null || true
             echo "mode=single" >> "$GITHUB_OUTPUT"
             echo "Attached single MP4: $(basename "$MP4S")"
           else
-            # Multiple videos (or partial failures): bundle into a zip.
-            ( cd all && zip -9 -j "${GITHUB_WORKSPACE}/final/videos.zip" *.mp4 )
+            # Multiple videos (or partial failures): bundle MP4s + per-file
+            # signatures + manifests into a zip. nullglob so a missing *.sig
+            # (signing disabled) does not break the zip command.
+            ( cd all && shopt -s nullglob && zip -9 -j "${GITHUB_WORKSPACE}/final/videos.zip" *.mp4 *.mp4.sig *.manifest.json )
             # Include the merged manifest inside the zip too.
             ( cd final && zip -9 -g videos.zip manifest.json ) || true
             echo "mode=zip" >> "$GITHUB_OUTPUT"
             echo "Bundled $N_MP4 video(s) into videos.zip"
           fi
 
+          ls -la final
+
+      # Sign the final deliverable(s) (the single MP4, or videos.zip) as an
+      # aggregate, and drop verify.sh + public-key.pem + SIGNATURE-INFO.txt
+      # next to it. Reuses the same key (SIGN_KEY_CACHE) as the per-file step.
+      - name: Sign final deliverable (aggregate)
+        if: inputs.sign_outputs != 'false'
+        run: |
+          bash scripts/sign_outputs.sh final/ "AXION Neuralis"
           ls -la final
 
       - name: Upload final artifact
@@ -200,4 +244,3 @@ jobs:
           path: final/
           if-no-files-found: error
           retention-days: 30
- 
