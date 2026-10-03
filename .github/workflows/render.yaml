@@ -3,14 +3,20 @@ name: Render HTML to MP4
 on:
   push:
     branches: [main]
-    paths:
-      - 'video/**'
-      - 'tools/**'
-      - '.github/workflows/render.yml'
+    paths: ['video/**', 'tools/**', '.github/workflows/render.yml']
   pull_request:
-    paths:
-      - 'video/**'
+    paths: ['video/**']
   workflow_dispatch:
+    inputs:
+      force_rerender:
+        description: 'Paksa render ulang (abaikan cache frame)'
+        type: boolean
+        default: false
+      frame_format:
+        description: 'Format frame'
+        type: choice
+        options: [jpeg, png, webp]
+        default: jpeg
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -21,13 +27,20 @@ permissions:
 
 jobs:
   render:
-    name: Render HTML → MP4
+    name: Render
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 350          # < 6h GHA hard limit
+
+    env:
+      FORCE_RERENDER: ${{ inputs.force_rerender && '1' || '0' }}
+      FRAME_FORMAT:   ${{ inputs.frame_format || 'jpeg' }}
+      FRAME_QUALITY:  '95'
+      KEEP_FRAMES:    '0'
+      # Berhenti rapi 10 menit sebelum timeout job
+      SOFT_DEADLINE_MS: '20400000'   # 5j40m
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Scan video/ folder
         id: check
@@ -35,26 +48,21 @@ jobs:
         run: |
           set -e
           if [ ! -d "video" ]; then
-            echo "found=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Folder video/ tidak ditemukan. Skip render."
-            exit 0
+            echo "found=false" >> "$GITHUB_OUTPUT"; exit 0
           fi
           mapfile -t files < <(find video -maxdepth 1 -type f \( -name '*.html' -o -name '*.htm' \) | sort)
           count=${#files[@]}
           echo "count=$count" >> "$GITHUB_OUTPUT"
           if [ "$count" -eq 0 ]; then
             echo "found=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Tidak ada file HTML di folder video/."
           else
             echo "found=true" >> "$GITHUB_OUTPUT"
-            printf 'Ditemukan: %s\n' "${files[@]}"
+            printf 'FOUND: %s\n' "${files[@]}"
           fi
 
-      - name: Setup Node.js
+      - uses: actions/setup-node@v4
         if: steps.check.outputs.found == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+        with: { node-version: '20' }
 
       - name: Cache Puppeteer Chromium
         if: steps.check.outputs.found == 'true'
@@ -62,26 +70,23 @@ jobs:
         with:
           path: ~/.cache/puppeteer
           key: puppeteer-${{ runner.os }}-${{ hashFiles('tools/package.json') }}
-          restore-keys: |
-            puppeteer-${{ runner.os }}-
+          restore-keys: puppeteer-${{ runner.os }}-
 
       - name: Install ffmpeg
         if: steps.check.outputs.found == 'true'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
 
-      - name: Install renderer dependencies
+      - name: Install renderer deps
         if: steps.check.outputs.found == 'true'
         working-directory: tools
         run: npm install --no-audit --no-fund
 
-      - name: Render HTML → MP4
+      - name: Render
         if: steps.check.outputs.found == 'true'
         run: node tools/render.js
 
       - name: Package artifact
-        if: steps.check.outputs.found == 'true'
+        if: always() && steps.check.outputs.found == 'true'
         id: package
         shell: bash
         run: |
@@ -90,38 +95,24 @@ jobs:
           shopt -s nullglob
           files=(output/*.mp4)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::Tidak ada file MP4 yang dihasilkan."
-            exit 1
+            echo "kind=none" >> "$GITHUB_OUTPUT"
+            echo "::warning::Tidak ada MP4 dihasilkan (mungkin soft-deadline / semua gagal)."
+            exit 0
           fi
           if [ ${#files[@]} -eq 1 ]; then
             cp "${files[0]}" artifact/
             echo "kind=single" >> "$GITHUB_OUTPUT"
-            echo "::notice::1 video → artifact berisi MP4 tunggal."
           else
             (cd output && zip -q -r ../artifact/videos.zip ./*.mp4)
             echo "kind=zip" >> "$GITHUB_OUTPUT"
-            echo "::notice::${#files[@]} video → artifact berisi ZIP."
           fi
           ls -lh artifact/
 
       - name: Upload artifact
-        if: steps.check.outputs.found == 'true'
+        if: always() && steps.check.outputs.found == 'true' && steps.package.outputs.kind != 'none'
         uses: actions/upload-artifact@v4
         with:
           name: rendered-videos
           path: artifact/*
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
-
-      - name: Job summary
-        if: steps.check.outputs.found == 'true'
-        shell: bash
-        run: |
-          {
-            echo "## 🎬 Render selesai"
-            echo ""
-            echo "- Jumlah HTML dirender: **${{ steps.check.outputs.count }}**"
-            echo "- Tipe artifact: **${{ steps.package.outputs.kind }}**"
-            echo ""
-            echo "Unduh artifact **rendered-videos** di halaman run ini."
-          } >> "$GITHUB_STEP_SUMMARY"
