@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Render a single HTML file to MP4 (no audio) using Xvfb + headful Chromium + ffmpeg.
-
 Designed to run inside a GitHub Actions matrix job (one HTML file per job).
 Supports long durations (real-time screen capture), 60 fps, 2K (configurable
 long-side), aspect ratio auto-detected from the HTML, and an optional
@@ -16,9 +15,20 @@ HTML conventions (all optional):
   window.VIDEO_FINISHED = true                     set to stop recording early
   window.VIDEO_DURATION = 30                       JS-side duration override
   window.VIDEO_WIDTH / window.VIDEO_HEIGHT         JS-side dimension override
+
+Changelog (fixed edition):
+  - `xset` is now OPTIONAL (best-effort screensaver/DPMS disable). A missing
+    xset no longer aborts the render — on Xvfb it is not required anyway.
+  - ffmpeg liveness is checked ~2 s after launch; if it died on startup (bad
+    args, no X display) we fail fast with the log tail instead of burning the
+    full duration and only then retrying.
+  - Headless dimension probe is wrapped in try/except (falls back to 16:9).
+  - Every MP4 is muxed with AXION Neuralis identity metadata (artist/title/
+    comment) so output is self-identifying. Cryptographic signing is done by
+    scripts/sign_outputs.sh in the package job.
+  - Preflight logs tool versions for easier debugging.
 """
 from __future__ import annotations
-
 import argparse
 import json
 import os
@@ -28,8 +38,10 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from shutil import which
 
-REQUIRED_CMDS = ["ffmpeg", "ffprobe", "Xvfb", "xset"]
+REQUIRED_CMDS = ["ffmpeg", "ffprobe", "Xvfb"]  # xset is optional (see below)
+PUBLISHER = "AXION Neuralis"
 
 
 def log(*args) -> None:
@@ -39,6 +51,24 @@ def log(*args) -> None:
 def die(msg: str, code: int = 1) -> None:
     log(f"::error::{msg}")
     sys.exit(code)
+
+
+def have(cmd: str) -> bool:
+    return which(cmd) is not None
+
+
+def preflight() -> None:
+    """Log versions of the tools we rely on (helps debug CI differences)."""
+    for c, args in [("ffmpeg", ["-version"]), ("Xvfb", ["-help"])]:
+        try:
+            out = subprocess.check_output([c] + args, stderr=subprocess.STDOUT, timeout=10)
+            first = out.decode(errors="ignore").splitlines()[0] if out else "(no output)"
+            log(f"preflight: {c} -> {first}")
+        except Exception as e:
+            log(f"::warning::preflight: could not query {c}: {e}")
+    if not have("xset"):
+        log("::warning::xset not found; continuing without screensaver/DPMS disable "
+            "(harmless on Xvfb). Install x11-xserver-utils to silence this.")
 
 
 # ---------------------------------------------------------------------------
@@ -59,36 +89,47 @@ def parse_meta(path: Path) -> dict:
     return meta
 
 
-def probe_with_playwright(html_path: Path):
-    """Headless probe: read window.VIDEO_* vars + layout dimensions."""
-    from playwright.sync_api import sync_playwright
+def probe_with_playwright(html_path: Path) -> dict:
+    """Headless probe: read window.VIDEO_* vars + layout dimensions.
 
+    Never raises — returns {} on failure so the render can continue with a
+    16:9 fallback instead of crashing the whole job.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception as e:
+        log(f"::warning::playwright import failed ({e}); using fallback dimensions.")
+        return {}
     url = html_path.resolve().as_uri()
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-        )
-        page = browser.new_page(viewport={"width": 1920, "height": 1080})
-        page.goto(url, wait_until="load")
-        try:
-            page.wait_for_load_state("networkidle", timeout=5000)
-        except Exception:
-            pass
-        page.wait_for_timeout(800)
-        data = page.evaluate(
-            """() => ({
-                vw: window.VIDEO_WIDTH ?? null,
-                vh: window.VIDEO_HEIGHT ?? null,
-                vdur: window.VIDEO_DURATION ?? null,
-                scrollW: document.documentElement.scrollWidth,
-                scrollH: document.documentElement.scrollHeight,
-                bodyW: document.body ? document.body.scrollWidth : 0,
-                bodyH: document.body ? document.body.scrollHeight : 0
-            })"""
-        )
-        browser.close()
-    return data
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
+            )
+            page = browser.new_page(viewport={"width": 1920, "height": 1080})
+            page.goto(url, wait_until="load")
+            try:
+                page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass
+            page.wait_for_timeout(800)
+            data = page.evaluate(
+                """() => ({
+                    vw: window.VIDEO_WIDTH ?? null,
+                    vh: window.VIDEO_HEIGHT ?? null,
+                    vdur: window.VIDEO_DURATION ?? null,
+                    scrollW: document.documentElement.scrollWidth,
+                    scrollH: document.documentElement.scrollHeight,
+                    bodyW: document.body ? document.body.scrollWidth : 0,
+                    bodyH: document.body ? document.body.scrollHeight : 0
+                })"""
+            )
+            browser.close()
+        return data or {}
+    except Exception as e:
+        log(f"::warning::dimension probe failed ({e}); using fallback dimensions.")
+        return {}
 
 
 def even(x: float) -> int:
@@ -151,13 +192,20 @@ def ffprobe_duration(path: Path):
         return None
 
 
+def tail_of(path: Path, n: int = 30) -> str:
+    try:
+        lines = path.read_text(errors="ignore").splitlines()
+        return "\n".join(lines[-n:])
+    except Exception:
+        return "(could not read log)"
+
+
 def render_once(html_path: Path, out_path: Path, W: int, H: int,
                 fps: int, duration: float, max_duration: float,
                 crf: int, preset: str) -> float:
     disp = find_free_display()
     env = os.environ.copy()
     env["DISPLAY"] = f":{disp}"
-
     xvfb = subprocess.Popen(
         ["Xvfb", f":{disp}", "-screen", "0", f"{W}x{H}x24",
          "-nolisten", "tcp", "-ac", "-noreset"],
@@ -169,10 +217,12 @@ def render_once(html_path: Path, out_path: Path, W: int, H: int,
 
     pw = browser = context = page = ffmpeg = log_f = None
     try:
-        subprocess.run(["xset", "s", "off"], env=env,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        subprocess.run(["xset", "-dpms"], env=env,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # xset is best-effort (not required on Xvfb).
+        if have("xset"):
+            subprocess.run(["xset", "s", "off"], env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["xset", "-dpms"], env=env,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         from playwright.sync_api import sync_playwright
         pw = sync_playwright().start()
@@ -211,6 +261,13 @@ def render_once(html_path: Path, out_path: Path, W: int, H: int,
 
         log_path = out_path.with_suffix(".log")
         log_f = open(log_path, "wb")
+
+        repo = os.environ.get("GITHUB_REPOSITORY", "local")
+        sha = (os.environ.get("GITHUB_SHA") or "")[:7]
+        run_id = os.environ.get("GITHUB_RUN_ID", "")
+        comment = (f"Rendered by {PUBLISHER} HTML\u2192MP4 pipeline | "
+                   f"repo={repo} commit={sha} run={run_id} | "
+                   f"signed output: see .sig sidecar + verify.sh")
         cmd = [
             "ffmpeg", "-y", "-loglevel", "info",
             "-thread_queue_size", "1024",
@@ -223,18 +280,33 @@ def render_once(html_path: Path, out_path: Path, W: int, H: int,
             "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
             "-pix_fmt", "yuv420p", "-threads", "0",
             "-movflags", "+faststart",
+            "-metadata", f"artist={PUBLISHER}",
+            "-metadata", f"publisher={PUBLISHER}",
+            "-metadata", f"title={html_path.name}",
+            "-metadata", f"comment={comment}",
             str(out_path),
         ]
         log("ffmpeg:", " ".join(cmd))
         ffmpeg = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=log_f, stderr=subprocess.STDOUT,
         )
-        time.sleep(0.5)
+        time.sleep(2.0)
+
+        # Fast-fail: if ffmpeg died on startup, surface the log tail now
+        # instead of recording silence for the full duration.
+        if ffmpeg.poll() is not None:
+            log_f.flush()
+            log("::error::ffmpeg exited immediately. Last lines of capture log:")
+            log(tail_of(log_path, 40))
+            die("ffmpeg failed to start capture.")
 
         rec_start = time.time()
         end_by = rec_start + min(duration, max_duration)
         while time.time() < end_by:
             time.sleep(0.5)
+            if ffmpeg.poll() is not None:
+                log("::warning::ffmpeg exited mid-capture; stopping early.")
+                break
             try:
                 if page.evaluate("window.VIDEO_FINISHED === true"):
                     log("Page signaled VIDEO_FINISHED; stopping recording.")
@@ -243,7 +315,6 @@ def render_once(html_path: Path, out_path: Path, W: int, H: int,
                 # Page crashed / navigated away: stop early to avoid garbage.
                 log("::warning::Lost contact with page; stopping recording.")
                 break
-
         actual = time.time() - rec_start
 
         # Graceful stop so ffmpeg finalizes the MP4 (moov atom).
@@ -281,7 +352,6 @@ def render_once(html_path: Path, out_path: Path, W: int, H: int,
             xvfb.wait(timeout=5)
         except Exception:
             xvfb.kill()
-
     return actual
 
 
@@ -303,8 +373,9 @@ def load_config(repo_root: Path) -> dict:
 
 
 def main() -> None:
+    preflight()
     for c in REQUIRED_CMDS:
-        if not shutil_which(c):
+        if not have(c):
             die(f"Required command not found: {c}")
 
     ap = argparse.ArgumentParser()
@@ -390,11 +461,11 @@ def main() -> None:
                 out_path.unlink()
         else:
             log(f"::error::Render failed after retry. Check {out_path.with_suffix('.log')}")
-
     if not ok:
         sys.exit(1)
 
     manifest = {
+        "publisher": PUBLISHER,
         "source_html": str(rel).replace(os.sep, "/"),
         "output_file": out_path.name,
         "width": W,
@@ -405,6 +476,7 @@ def main() -> None:
         "target_duration_s": round(duration, 2),
         "actual_duration_s": round(actual_duration or 0, 2),
         "size_bytes": out_path.stat().st_size,
+        "sha256": sha256_of(out_path),
         "encoded_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     (out_dir / f"{base}.manifest.json").write_text(
@@ -413,9 +485,13 @@ def main() -> None:
     log("MANIFEST " + json.dumps(manifest))
 
 
-def shutil_which(cmd: str) -> bool:
-    from shutil import which
-    return which(cmd) is not None
+def sha256_of(path: Path) -> str:
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 
 if __name__ == "__main__":
