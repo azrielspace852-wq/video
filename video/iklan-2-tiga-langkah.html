@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Romance Engine — Iklan 2: Tiga Langkah</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,600&family=Urbanist:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Romance Engine — Iklan 2 "Tiga Langkah" (60 detik, HD 1920x1080)
+     Ubah DURATION di <script> untuk memperpanjang/memperpendek.
+     ============================================================ */
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Urbanist',system-ui,sans-serif}
+  #stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%);
+    background:linear-gradient(160deg,#FFF5F8 0%,#FFE9F0 45%,#F0FBFF 100%);overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;z-index:1}
+  .b1{width:640px;height:640px;background:#FFC2D6;top:-160px;right:-120px}
+  .b2{width:560px;height:560px;background:#BEEBFF;bottom:-180px;left:-140px}
+  .float-h{position:absolute;z-index:2;opacity:.5;animation:floaty 7s ease-in-out infinite}
+  @keyframes floaty{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-26px) rotate(8deg)}}
+
+  .scene{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 120px;will-change:opacity,transform}
+  .eyebrow{font-weight:700;letter-spacing:.38em;font-size:20px;color:#F43F7F;text-transform:uppercase;margin-bottom:22px}
+  .h1{font-family:'Playfair Display',serif;font-weight:900;font-size:96px;line-height:1.08;color:#2A0A18;max-width:1300px}
+  .h1 em{font-style:italic;background:linear-gradient(100deg,#FF5E94,#F43F7F);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{font-weight:400;font-size:28px;color:#7A4A5C;max-width:1000px;line-height:1.55;margin-top:24px}
+
+  .logo-row{display:flex;align-items:center;gap:22px;margin-bottom:26px}
+  .logo-row svg{width:64px;height:64px;filter:drop-shadow(0 6px 18px rgba(244,63,127,.4))}
+  .logo-row .name{font-family:'Playfair Display',serif;font-weight:900;font-size:56px;color:#2A0A18}
+
+  /* Mock window */
+  .mock{width:1080px;max-width:1120px;background:#fff;border-radius:22px;box-shadow:0 30px 80px rgba(74,20,40,.18),0 2px 8px rgba(74,20,40,.08);overflow:hidden;text-align:left;border:1px solid rgba(244,63,127,.12)}
+  .mock-bar{height:52px;background:#FDF2F6;display:flex;align-items:center;gap:10px;padding:0 20px;border-bottom:1px solid rgba(244,63,127,.1)}
+  .dot{width:14px;height:14px;border-radius:50%}
+  .mock-bar .addr{flex:1;text-align:center;font-size:17px;color:#A67085;background:#fff;border-radius:8px;padding:6px 14px;margin:0 30px;font-weight:500}
+  .mock-body{padding:44px 52px;min-height:380px}
+  .field-label{font-size:18px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#F43F7F;margin-bottom:14px}
+  .typed{font-family:'Playfair Display',serif;font-style:italic;font-size:36px;line-height:1.5;color:#2A0A18;min-height:170px}
+  .typed .caret{display:inline-block;width:3px;height:34px;background:#F43F7F;margin-left:4px;vertical-align:-4px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .progress-row{display:flex;gap:10px;margin-top:34px}
+  .pg{flex:1;height:8px;border-radius:99px;background:#FFE3EC;overflow:hidden}
+  .pg i{display:block;height:100%;width:0;background:linear-gradient(90deg,#FF8FB1,#F43F7F);border-radius:99px}
+
+  /* Link card */
+  .linkcard{display:flex;align-items:center;gap:20px;background:#fff;border:1px solid rgba(14,116,144,.18);border-radius:18px;padding:22px 26px;box-shadow:0 16px 44px rgba(14,116,144,.14);margin-top:30px}
+  .linkcard .ic{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#7DE8F5,#0E7490);display:flex;align-items:center;justify-content:center;flex:none}
+  .linkcard .ic svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2.2}
+  .linkcard .url-txt{flex:1;text-align:left}
+  .linkcard .url-txt .l1{font-size:15px;letter-spacing:.14em;text-transform:uppercase;color:#0E7490;font-weight:700}
+  .linkcard .url-txt .l2{font-size:26px;font-weight:700;color:#2A0A18;margin-top:2px;font-family:'Urbanist'}
+  .copybtn{padding:14px 28px;border-radius:12px;background:#F43F7F;color:#fff;font-weight:800;font-size:19px;letter-spacing:.04em;flex:none;box-shadow:0 8px 22px rgba(244,63,127,.35)}
+  .copybtn.done{background:#0E7490;box-shadow:0 8px 22px rgba(14,116,144,.35)}
+
+  /* Phone mock */
+  .phone{width:340px;height:640px;background:#1A000C;border-radius:44px;padding:14px;box-shadow:0 30px 70px rgba(26,0,12,.4);position:relative;flex:none}
+  .phone .screen{width:100%;height:100%;border-radius:32px;background:radial-gradient(120% 90% at 50% 0%,#3A0A20 0%,#0D0208 70%);position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 22px;text-align:center}
+  .ph-heart{position:absolute;color:#FF5E94;animation:rise 4s linear infinite;opacity:.8}
+  @keyframes rise{0%{transform:translateY(40px) scale(.6);opacity:0}20%{opacity:.9}100%{transform:translateY(-320px) scale(1.1);opacity:0}}
+  .phone .q{font-family:'Playfair Display',serif;font-style:italic;font-size:30px;color:#FDF2F6;line-height:1.35;margin-bottom:26px;position:relative;z-index:2}
+  .yn{display:flex;gap:14px;position:relative;z-index:2}
+  .yn .y{padding:14px 30px;border-radius:999px;background:linear-gradient(100deg,#FF5E94,#F43F7F);color:#fff;font-weight:800;font-size:20px;box-shadow:0 0 30px rgba(244,63,127,.6)}
+  .yn .n{padding:14px 30px;border-radius:999px;border:1.5px solid rgba(253,242,246,.35);color:rgba(253,242,246,.75);font-weight:600;font-size:20px}
+  .counter-badge{position:relative;z-index:2;margin-top:28px;padding:10px 20px;border-radius:999px;background:rgba(125,232,245,.14);border:1px solid rgba(125,232,245,.4);color:#7DE8F5;font-weight:700;font-size:17px;letter-spacing:.06em}
+
+  .demo-row{display:flex;gap:70px;align-items:center;margin-top:10px}
+  .demo-text{text-align:left;max-width:560px}
+  .demo-text .num{font-family:'Playfair Display',serif;font-weight:900;font-size:120px;line-height:1;background:linear-gradient(135deg,#FF8FB1,#F43F7F);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .demo-text h2{font-size:46px;font-weight:800;color:#2A0A18;margin:10px 0 14px}
+  .demo-text p{font-size:24px;color:#7A4A5C;line-height:1.55;font-weight:400}
+
+  .chips{display:flex;flex-wrap:wrap;gap:18px;justify-content:center;max-width:1200px;margin-top:14px}
+  .chip{padding:16px 30px;border-radius:999px;background:#fff;border:1.5px solid rgba(244,63,127,.22);font-weight:700;font-size:23px;color:#2A0A18;box-shadow:0 8px 20px rgba(74,20,40,.07)}
+  .chip svg{width:22px;height:22px;vertical-align:-4px;margin-right:10px;stroke:#F43F7F;fill:none;stroke-width:2.2}
+
+  .cta-btn{margin-top:40px;display:inline-flex;align-items:center;gap:14px;padding:24px 58px;border-radius:999px;
+    background:linear-gradient(100deg,#FF5E94,#F43F7F);color:#fff;font-weight:800;font-size:30px;letter-spacing:.03em;
+    box-shadow:0 14px 44px rgba(244,63,127,.45)}
+  .cta-btn svg{width:30px;height:30px;fill:#fff}
+  .urls{display:flex;gap:24px;margin-top:34px}
+  .url-chip{font-weight:700;font-size:23px;color:#2A0A18;padding:15px 28px;border-radius:14px;background:#fff;border:1.5px solid rgba(14,116,144,.3);box-shadow:0 6px 18px rgba(14,116,144,.1)}
+  .url-chip span{color:#0E7490;font-weight:700;margin-right:10px;letter-spacing:.1em;font-size:17px;text-transform:uppercase}
+  .fineprint{margin-top:28px;font-weight:500;font-size:18px;letter-spacing:.24em;text-transform:uppercase;color:#A67085}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <svg class="float-h" style="left:8%;top:18%;width:54px;height:54px;animation-delay:0s" viewBox="0 0 24 24"><path fill="#FF8FB1" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+  <svg class="float-h" style="right:10%;top:64%;width:40px;height:40px;animation-delay:1.4s" viewBox="0 0 24 24"><path fill="#7DE8F5" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+  <svg class="float-h" style="left:16%;bottom:10%;width:34px;height:34px;animation-delay:2.6s" viewBox="0 0 24 24"><path fill="#FFB3C9" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+
+  <!-- Scene 1: intro -->
+  <div class="scene" id="s1">
+    <div class="logo-row" data-k="logo1">
+      <svg viewBox="0 0 24 24"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB3C9"/><stop offset="1" stop-color="#FF5E94"/></linearGradient></defs><path fill="url(#lg2)" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      <div class="name">Romance Engine</div>
+    </div>
+    <div class="h1" data-k="h11">Deklarasi cinta <em>sinematik</em>,<br>dalam tiga langkah.</div>
+    <div class="sub" data-k="sub1">Tanpa kode. Tanpa ribet. Hanya perasaanmu yang jadi bintang.</div>
+  </div>
+
+  <!-- Scene 2: Step 1 Tulis -->
+  <div class="scene" id="s2">
+    <div class="demo-row">
+      <div class="demo-text" data-k="dt2">
+        <div class="num">1</div>
+        <h2>Tulis ceritamu</h2>
+        <p>Curahkan surat cinta, kenangan, dan kata-kata pilihanmu ke dalam satu panggung pribadi.</p>
+      </div>
+      <div class="mock" data-k="mock2">
+        <div class="mock-bar">
+          <span class="dot" style="background:#FF5F57"></span><span class="dot" style="background:#FEBC2E"></span><span class="dot" style="background:#28C840"></span>
+          <span class="addr">romance-engine.pages.dev/buat</span>
+        </div>
+        <div class="mock-body">
+          <div class="field-label">Surat Cinta</div>
+          <div class="typed"><span id="typedText"></span><span class="caret"></span></div>
+          <div class="progress-row"><div class="pg"><i id="pg1"></i></div><div class="pg"><i id="pg2"></i></div><div class="pg"><i id="pg3"></i></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 3: Step 2 Tautan -->
+  <div class="scene" id="s3">
+    <div class="demo-row">
+      <div class="mock" data-k="mock3" style="max-width:760px">
+        <div class="mock-bar">
+          <span class="dot" style="background:#FF5F57"></span><span class="dot" style="background:#FEBC2E"></span><span class="dot" style="background:#28C840"></span>
+          <span class="addr">Tautan pribadimu siap</span>
+        </div>
+        <div class="mock-body" style="min-height:0;display:flex;flex-direction:column;align-items:center;padding:56px 52px">
+          <div class="field-label" style="text-align:center">Langkah 2 · Selesai dalam hitungan detik</div>
+          <div class="linkcard">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <div class="url-txt"><div class="l1">Tautan unikmu</div><div class="l2">romance-engine.pages.dev/untuk-dia</div></div>
+            <div class="copybtn" id="copyBtn">Salin</div>
+          </div>
+          <p style="margin-top:26px;font-size:21px;color:#7A4A5C;max-width:520px;text-align:center;line-height:1.55">Kirim lewat chat, media sosial, atau QR — satu tautan yang hidup selamanya.</p>
+        </div>
+      </div>
+      <div class="demo-text" data-k="dt3">
+        <div class="num">2</div>
+        <h2>Terima tautan unikmu</h2>
+        <p>Satu alamat pribadi, siap dibuka dia di ponselnya kapan saja.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 4: Step 3 Dia merasakan -->
+  <div class="scene" id="s4">
+    <div class="demo-row">
+      <div class="demo-text" data-k="dt4">
+        <div class="num">3</div>
+        <h2>Biarkan dia merasakannya</h2>
+        <p>Visual 3D, musik pengiring, suratmu, dan pertanyaan besar menyambutnya di layar.</p>
+      </div>
+      <div class="phone" data-k="ph4">
+        <div class="screen">
+          <span class="ph-heart" style="left:20%;bottom:-10%;font-size:26px;animation-delay:0s">
+            <svg width="26" height="26" viewBox="0 0 24 24"><path fill="#FF5E94" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>
+          <span class="ph-heart" style="left:55%;bottom:-10%;font-size:20px;animation-delay:1.2s">
+            <svg width="20" height="20" viewBox="0 0 24 24"><path fill="#7DE8F5" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>
+          <span class="ph-heart" style="left:75%;bottom:-10%;font-size:16px;animation-delay:2.4s">
+            <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#FFB3C9" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>
+          <div class="q">“Mau jadi pacarku?”</div>
+          <div class="yn"><div class="y">YES</div><div class="n">NO</div></div>
+          <div class="counter-badge">Hari ke-<span id="cnt">1</span> · 00:00:00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 5: feature chips -->
+  <div class="scene" id="s5">
+    <div class="eyebrow" data-k="e5">Semua yang dia butuhkan untuk terkesan</div>
+    <div class="h1" data-k="h15" style="font-size:64px;margin-bottom:14px">Satu tautan. <em>Segalanya.</em></div>
+    <div class="chips">
+      <div class="chip" data-k="c1"><svg viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>Visual 3D</div>
+      <div class="chip" data-k="c2"><svg viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>Musik Pengiring</div>
+      <div class="chip" data-k="c3"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Surat Digital</div>
+      <div class="chip" data-k="c4"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>Pertanyaan YES / NO</div>
+      <div class="chip" data-k="c5"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Counter Hari Spesial</div>
+      <div class="chip" data-k="c6"><svg viewBox="0 0 24 24"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>Tanpa Kode</div>
+    </div>
+  </div>
+
+  <!-- Scene 6: CTA -->
+  <div class="scene" id="s6">
+    <div class="logo-row" data-k="logo6" style="margin-bottom:14px">
+      <svg viewBox="0 0 24 24" style="width:56px;height:56px"><defs><linearGradient id="lg6" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB3C9"/><stop offset="1" stop-color="#FF5E94"/></linearGradient></defs><path fill="url(#lg6)" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      <div class="name" style="font-size:48px">Romance Engine</div>
+    </div>
+    <div class="h1" data-k="h16" style="font-size:72px">Perasaanmu layak<br>dijadikan <em>panggung.</em></div>
+    <div class="cta-btn" data-k="btn6">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      Buat Milikmu Sekarang
+    </div>
+    <div class="urls" data-k="u6">
+      <div class="url-chip"><span>Unduh</span>romance-engine.pages.dev</div>
+      <div class="url-chip"><span>Unduh</span>romance-engine.axn.cc.cd</div>
+    </div>
+    <div class="fineprint" data-k="fp6">Dalam hitungan menit · Satu tautan · Selamanya</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var DURATION = 60;          // ubah ke 90 untuk 1.5 menit
+  var S = DURATION / 60;
+  var W = 1920, H = 1080;
+  var stage = document.getElementById('stage');
+  function fit(){ var s=Math.min(window.innerWidth/W, window.innerHeight/H); stage.style.transform='translate(-50%,-50%) scale('+s+')'; }
+  window.addEventListener('resize', fit); fit();
+
+  function smooth(x){ return x<=0?0:x>=1?1:x*x*(3-2*x); }
+  function seg(t,a,b,edge){ a*=S;b*=S; if(edge===undefined)edge=0.8; if(t<=a||t>=b)return 0; var fi=Math.min(edge,(b-a)/2); return Math.min(smooth((t-a)/fi),smooth((b-t)/fi)); }
+  function set(el,o,ty,sc){ if(!el)return; el.style.opacity=o; el.style.transform='translateY('+(ty||0)+'px) scale('+(sc||1)+')'; }
+
+  var els={};
+  ['logo1','h11','sub1','dt2','mock2','dt3','mock3','dt4','ph4','e5','h15','c1','c2','c3','c4','c5','c6','logo6','h16','btn6','u6','fp6']
+    .forEach(function(k){ els[k]=document.querySelector('[data-k="'+k+'"]'); });
+  var typedEl=document.getElementById('typedText');
+  var copyBtn=document.getElementById('copyBtn');
+  var cntEl=document.getElementById('cnt');
+  var pg1=document.getElementById('pg1'),pg2=document.getElementById('pg2'),pg3=document.getElementById('pg3');
+  var FULL = 'Untuk dia yang mengubah hari-hariku menjadi berwarna — setiap detik bersamamu adalah alasan aku tersenyum.';
+
+  function update(t){
+    var o,ty;
+    // S1 intro 0-5
+    o=seg(t,0.3,5,1.0); ty=(1-o)*24;
+    set(els.logo1,o,ty*.5,1); set(els.h11,o,ty,1+(1-o)*.02); set(els.sub1,o,ty*1.5,1);
+    // S2 step1 5-18
+    o=seg(t,5,18,1.1); ty=(1-o)*28;
+    set(els.dt2,o,ty,1); set(els.mock2,o,ty*.6,0.96+o*.04);
+    // typing + progress within 5.5-15
+    var tp = smooth(Math.min(1,Math.max(0,(t-5.8*S)/(8.5*S))));
+    typedEl.textContent = FULL.slice(0, Math.floor(tp*FULL.length));
+    pg1.style.width=(Math.min(1,tp*1.6)*100)+'%';
+    pg2.style.width=(Math.min(1,Math.max(0,tp*1.6-0.6))*100)+'%';
+    pg3.style.width=(Math.min(1,Math.max(0,tp*1.6-1.2))*100)+'%';
+    // S3 step2 18-30
+    o=seg(t,18,30,1.1); ty=(1-o)*28;
+    set(els.mock3,o,ty*.6,0.96+o*.04); set(els.dt3,o,ty,1);
+    if(t > 24*S && t < 30*S){ copyBtn.textContent='Tersalin ✓'; copyBtn.classList.add('done'); } else { copyBtn.textContent='Salin'; copyBtn.classList.remove('done'); }
+    // S4 step3 30-42
+    o=seg(t,30,42,1.1); ty=(1-o)*28;
+    set(els.dt4,o,ty,1); set(els.ph4,o,ty*.6,0.96+o*.04);
+    var cp = smooth(Math.min(1,Math.max(0,(t-33*S)/(6*S))));
+    cntEl.textContent = 1 + Math.floor(cp*119);
+    // S5 chips 42-50
+    set(els.e5, seg(t,42,50,0.9), 0, 1);
+    set(els.h15, seg(t,42,50,0.9), (1-seg(t,42,50,0.9))*20, 1);
+    var cs=['c1','c2','c3','c4','c5','c6'];
+    for(var i=0;i<cs.length;i++){ o=seg(t,42.8+i*0.45,50,0.8); set(els[cs[i]],o,(1-o)*20,0.95+o*.05); }
+    // S6 CTA 50-60
+    o = t<50*S ? 0 : smooth(Math.min(1,(t-50*S)/1.1));
+    set(els.logo6,o,(1-o)*16,0.9+o*.1);
+    set(els.h16,o,(1-o)*24,0.95+o*.05);
+    set(els.btn6,o,(1-o)*28,0.96+o*.04);
+    set(els.u6,o,(1-o)*32,1);
+    set(els.fp6,o,(1-o)*36,1);
+  }
+
+  var last=performance.now(), acc=0, paused=false, started=false;
+  function frame(now){
+    var dt=Math.min(0.05,(now-last)/1000); last=now;
+    if(!paused) acc+=dt;
+    var t=Math.max(0,Math.min(DURATION,acc));
+    update(t);
+    requestAnimationFrame(frame);
+  }
+  function start(){ if(started)return; started=true; last=performance.now(); requestAnimationFrame(frame); }
+  var ft=setTimeout(start,3000);
+  if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(function(){clearTimeout(ft);setTimeout(start,150);}); }
+  window.addEventListener('keydown',function(e){ if(e.key==='r'||e.key==='R'){acc=0;paused=false;} if(e.code==='Space'){e.preventDefault();paused=!paused;} });
+  // Hook untuk render frame-akurat (dipakai tools/record.mjs)
+  window.__AD = {
+    setTime: function(v){ acc = Math.max(0, Math.min(DURATION, v)); },
+    setPaused: function(b){ paused = !!b; },
+    getDuration: function(){ return DURATION; }
+  };
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Romance Engine — Iklan 3: Cerita Cinta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,500;1,600;1,700&family=Urbanist:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Romance Engine — Iklan 3 "Cerita Cinta" (60 detik, HD 1920x1080)
+     Ubah DURATION di <script> untuk memperpanjang/memperpendek.
+     ============================================================ */
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Urbanist',system-ui,sans-serif}
+  #stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;transform:translate(-50%,-50%);
+    background:radial-gradient(120% 90% at 50% 0%,#4A1130 0%,#2B0A2E 45%,#150418 100%);overflow:hidden}
+  .sun{position:absolute;left:50%;bottom:-260px;transform:translateX(-50%);width:900px;height:900px;border-radius:50%;
+    background:radial-gradient(circle, rgba(255,176,136,.55) 0%, rgba(255,107,157,.28) 35%, transparent 70%);z-index:1}
+  .stars{position:absolute;inset:0;z-index:1;opacity:.7}
+  .float-h{position:absolute;z-index:2;opacity:.45;animation:floaty 8s ease-in-out infinite}
+  @keyframes floaty{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-30px) rotate(9deg)}}
+
+  .scene{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 140px;will-change:opacity,transform}
+  .eyebrow{font-weight:700;letter-spacing:.4em;font-size:20px;color:#FFD27D;text-transform:uppercase;margin-bottom:26px}
+  .story-line{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:74px;line-height:1.3;color:#FFF0E6;max-width:1350px;text-shadow:0 4px 40px rgba(255,107,157,.3)}
+  .story-line em{font-style:normal;font-weight:700;background:linear-gradient(100deg,#FFD27D,#FF8E72);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+  /* Chat mock */
+  .chat{width:760px;display:flex;flex-direction:column;gap:18px;text-align:left}
+  .bubble{max-width:78%;padding:20px 28px;border-radius:26px;font-size:26px;line-height:1.45;font-weight:500;color:#2B0A2E;box-shadow:0 12px 30px rgba(0,0,0,.25);position:relative}
+  .bubble.me{align-self:flex-end;background:linear-gradient(135deg,#FF9DB8,#FF6B9D);color:#fff;border-bottom-right-radius:8px}
+  .bubble.you{align-self:flex-start;background:#FFF0E6;border-bottom-left-radius:8px}
+  .typing-dots{display:inline-flex;gap:8px;padding:24px 30px}
+  .typing-dots i{width:12px;height:12px;border-radius:50%;background:#C9A0B0;animation:td 1.2s infinite}
+  .typing-dots i:nth-child(2){animation-delay:.2s}.typing-dots i:nth-child(3){animation-delay:.4s}
+  @keyframes td{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-8px);opacity:1}}
+
+  /* Letter */
+  .letter-wrap{perspective:1400px}
+  .letter{width:620px;background:linear-gradient(160deg,#FFF7EE,#FFE9D6);border-radius:14px;padding:60px 56px;box-shadow:0 40px 90px rgba(0,0,0,.5);position:relative;transform-style:preserve-3d;text-align:left}
+  .letter::before{content:'';position:absolute;top:0;left:0;right:0;height:8px;border-radius:14px 14px 0 0;background:linear-gradient(90deg,#FF6B9D,#FFD27D)}
+  .letter .seal{position:absolute;top:-34px;right:40px;width:84px;height:84px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#FF8FA8,#C22755);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 22px rgba(194,39,85,.5)}
+  .letter .seal svg{width:40px;height:40px;fill:#FFE4EC}
+  .letter .to{font-size:18px;letter-spacing:.24em;text-transform:uppercase;color:#C22755;font-weight:800;margin-bottom:18px}
+  .letter .body{font-family:'Playfair Display',serif;font-style:italic;font-size:30px;line-height:1.6;color:#4A1130}
+  .letter .sign{margin-top:26px;font-family:'Playfair Display',serif;font-size:26px;color:#4A1130;text-align:right;font-style:italic}
+
+  /* Link reveal */
+  .reveal-card{background:rgba(255,255,255,.07);border:1px solid rgba(255,210,125,.35);backdrop-filter:blur(10px);border-radius:26px;padding:50px 64px;box-shadow:0 30px 80px rgba(0,0,0,.4)}
+  .reveal-card .label{font-size:18px;letter-spacing:.3em;text-transform:uppercase;color:#FFD27D;font-weight:700;margin-bottom:16px}
+  .reveal-card .biglink{font-family:'Urbanist';font-weight:800;font-size:40px;color:#FFF0E6;letter-spacing:.02em}
+  .reveal-card .biglink b{color:#FF9DB8}
+  .burst{position:absolute;inset:0;pointer-events:none;z-index:6}
+  .burst span{position:absolute;left:50%;top:50%;font-size:0;animation:burst 1.6s ease-out forwards}
+  @keyframes burst{0%{transform:translate(-50%,-50%) scale(.2);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(1);opacity:0}}
+  .burst svg{width:34px;height:34px}
+
+  /* The question */
+  .big-q{font-family:'Playfair Display',serif;font-weight:900;font-size:110px;color:#FFF0E6;line-height:1.15;text-shadow:0 6px 50px rgba(255,107,157,.4)}
+  .big-q em{font-style:italic;background:linear-gradient(100deg,#FFD27D,#FF8E72,#FF6B9D);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .yn{display:flex;gap:30px;margin-top:50px;align-items:center}
+  .yn .y{padding:26px 70px;border-radius:999px;background:linear-gradient(100deg,#FF6B9D,#C22755);color:#fff;font-weight:900;font-size:36px;letter-spacing:.06em;box-shadow:0 0 50px rgba(255,107,157,.6);transition:none}
+  .yn .n{padding:22px 54px;border-radius:999px;border:2px solid rgba(255,240,230,.35);color:rgba(255,240,230,.6);font-weight:700;font-size:30px;letter-spacing:.06em}
+  .yes-msg{margin-top:40px;font-family:'Playfair Display',serif;font-style:italic;font-size:56px;color:#FFD27D;text-shadow:0 4px 30px rgba(255,210,125,.5)}
+
+  /* Counter */
+  .counter-big{font-family:'Urbanist';font-weight:900;font-size:200px;line-height:1;background:linear-gradient(180deg,#FFD27D,#FF8E72);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.02em}
+  .counter-label{font-size:30px;letter-spacing:.3em;text-transform:uppercase;color:#FF9DB8;font-weight:700;margin-top:14px}
+  .counter-sub{font-family:'Playfair Display',serif;font-style:italic;font-size:40px;color:#FFF0E6;margin-top:30px;max-width:1000px;line-height:1.4}
+
+  .cta-btn{margin-top:40px;display:inline-flex;align-items:center;gap:14px;padding:26px 62px;border-radius:999px;
+    background:linear-gradient(100deg,#FF6B9D,#C22755);color:#fff;font-weight:800;font-size:32px;letter-spacing:.03em;
+    box-shadow:0 16px 50px rgba(255,107,157,.5)}
+  .cta-btn svg{width:32px;height:32px;fill:#fff}
+  .urls{display:flex;gap:26px;margin-top:36px}
+  .url-chip{font-weight:700;font-size:24px;color:#FFF0E6;padding:16px 30px;border-radius:14px;background:rgba(255,255,255,.06);border:1.5px solid rgba(255,210,125,.4)}
+  .url-chip span{color:#FFD27D;font-weight:700;margin-right:10px;letter-spacing:.12em;font-size:18px;text-transform:uppercase}
+  .fineprint{margin-top:30px;font-weight:500;font-size:18px;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,240,230,.5)}
+  .brand-mini{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+  .brand-mini svg{width:52px;height:52px;filter:drop-shadow(0 6px 18px rgba(255,107,157,.5))}
+  .brand-mini .nm{font-family:'Playfair Display',serif;font-weight:900;font-size:44px;color:#FFF0E6}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="sun"></div>
+  <canvas class="stars" id="stars" width="1920" height="1080"></canvas>
+  <svg class="float-h" style="left:7%;top:14%;width:46px;height:46px" viewBox="0 0 24 24"><path fill="#FF9DB8" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+  <svg class="float-h" style="right:9%;top:58%;width:36px;height:36px;animation-delay:1.8s" viewBox="0 0 24 24"><path fill="#FFD27D" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+
+  <!-- Scene 1: chat -->
+  <div class="scene" id="s1">
+    <div class="eyebrow" data-k="e1">Mulai dari sebuah chat</div>
+    <div class="chat" data-k="chat">
+      <div class="bubble you" id="bYou">Kamu lagi sibuk?</div>
+      <div class="bubble me" id="bMe"><span id="chatText"></span><span class="caret" style="display:inline-block;width:3px;height:26px;background:#fff;margin-left:4px;vertical-align:-3px;animation:blink 1s steps(1) infinite"></span></div>
+    </div>
+    <div class="sub" data-k="s1sub" style="margin-top:40px;font-size:26px;color:rgba(255,240,230,.65);font-weight:300;max-width:760px;line-height:1.5">Tapi chat terasa terlalu kecil…</div>
+  </div>
+
+  <!-- Scene 2: line -->
+  <div class="scene" id="s2">
+    <div class="story-line" data-k="l2">…untuk perasaan <em>sebesar ini.</em></div>
+  </div>
+
+  <!-- Scene 3: letter -->
+  <div class="scene" id="s3">
+    <div class="eyebrow" data-k="e3">Jadi kamu tulis surat</div>
+    <div class="letter-wrap" data-k="letter">
+      <div class="letter">
+        <div class="seal"><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></div>
+        <div class="to">Untuk dia yang selalu aku tunggu</div>
+        <div class="body">“Sejak pertama kali kita bertemu, aku tahu hari-hariku tidak akan pernah sama lagi. Sekarang izinkan aku menunjukkannya — bukan dengan kata-kata biasa, tapi dengan sebuah panggung.”</div>
+        <div class="sign">— Selalu milikmu</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 4: link reveal -->
+  <div class="scene" id="s4">
+    <div class="eyebrow" data-k="e4">Lalu kamu kirim…</div>
+    <div class="reveal-card" data-k="rc">
+      <div class="label">Satu tautan pribadi</div>
+      <div class="biglink">romance-engine<b>.pages.dev</b>/untuk-dia</div>
+    </div>
+    <div class="sub" data-k="s4sub" style="margin-top:36px;font-family:'Playfair Display',serif;font-style:italic;font-size:36px;color:#FFD27D">Dia membukanya. Dan dunia berubah.</div>
+  </div>
+
+  <!-- Scene 5: the question + YES -->
+  <div class="scene" id="s5">
+    <div class="burst" id="burst"></div>
+    <div class="big-q" data-k="bq">“Mau jadi <em>pacarku?</em>”</div>
+    <div class="yn" data-k="yn">
+      <div class="y" id="yesBtn">YES</div>
+      <div class="n" id="noBtn">NO</div>
+    </div>
+    <div class="yes-msg" id="yesMsg">Dia berkata YES.</div>
+  </div>
+
+  <!-- Scene 6: counter -->
+  <div class="scene" id="s6">
+    <div class="counter-big" id="cntBig">0</div>
+    <div class="counter-label" data-k="cl">Hari bersama — dan seterusnya</div>
+    <div class="counter-sub" data-k="cs">Dan hitungan hari kalian dimulai.<br>Semua karena satu tautan yang kamu buat.</div>
+  </div>
+
+  <!-- Scene 7: CTA -->
+  <div class="scene" id="s7">
+    <div class="brand-mini" data-k="bm">
+      <svg viewBox="0 0 24 24"><defs><linearGradient id="lg3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD27D"/><stop offset="1" stop-color="#FF6B9D"/></linearGradient></defs><path fill="url(#lg3)" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      <div class="nm">Romance Engine</div>
+    </div>
+    <div class="story-line" data-k="sl7" style="font-size:64px">Cerita kalian dimulai dari <em>satu tautan.</em></div>
+    <div class="cta-btn" data-k="btn7">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      Buat Milikmu Sekarang
+    </div>
+    <div class="urls" data-k="u7">
+      <div class="url-chip"><span>Unduh</span>romance-engine.pages.dev</div>
+      <div class="url-chip"><span>Unduh</span>romance-engine.axn.cc.cd</div>
+    </div>
+    <div class="fineprint" data-k="fp7">Tanpa kode · Dalam hitungan menit · Satu tautan selamanya</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var DURATION = 60;          // ubah ke 90 untuk 1.5 menit
+  var S = DURATION / 60;
+  var W = 1920, H = 1080;
+  var stage = document.getElementById('stage');
+  function fit(){ var s=Math.min(window.innerWidth/W, window.innerHeight/H); stage.style.transform='translate(-50%,-50%) scale('+s+')'; }
+  window.addEventListener('resize', fit); fit();
+
+  function smooth(x){ return x<=0?0:x>=1?1:x*x*(3-2*x); }
+  function seg(t,a,b,edge){ a*=S;b*=S; if(edge===undefined)edge=0.8; if(t<=a||t>=b)return 0; var fi=Math.min(edge,(b-a)/2); return Math.min(smooth((t-a)/fi),smooth((b-t)/fi)); }
+  function set(el,o,ty,sc,rot){ if(!el)return; el.style.opacity=o; el.style.transform='translateY('+(ty||0)+'px) scale('+(sc||1)+') rotate('+(rot||0)+'deg)'; }
+
+  // stars canvas
+  var cv=document.getElementById('stars'), ctx=cv.getContext('2d'), stars=[];
+  for(var i=0;i<140;i++) stars.push({x:Math.random()*W,y:Math.random()*H*0.7,r:Math.random()*1.6+.4,a:Math.random()*.7+.2,ph:Math.random()*6.28});
+  var last=performance.now();
+  function drawStars(dt){
+    ctx.clearRect(0,0,W,H);
+    for(var i=0;i<stars.length;i++){ var s=stars[i]; s.ph+=dt*1.5; var tw=.5+.5*Math.sin(s.ph); ctx.globalAlpha=s.a*tw; ctx.fillStyle='#FFE9C9'; ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,6.283); ctx.fill(); }
+    ctx.globalAlpha=1;
+  }
+
+  // burst hearts (prebuilt, shown at YES moment)
+  var burst=document.getElementById('burst');
+  var HEART='<svg viewBox="0 0 24 24"><path fill="FILL" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>';
+  var COLORS=['#FF6B9D','#FFD27D','#FF8E72','#FF9DB8','#FFB088'];
+  for(var b=0;b<26;b++){
+    var sp=document.createElement('span');
+    var ang=Math.random()*Math.PI*2, dist=180+Math.random()*340;
+    sp.style.setProperty('--dx',(Math.cos(ang)*dist)+'px');
+    sp.style.setProperty('--dy',(Math.sin(ang)*dist)+'px');
+    sp.style.animationDelay=(Math.random()*.3)+'s';
+    sp.innerHTML=HEART.replace('FILL',COLORS[b%COLORS.length]);
+    burst.appendChild(sp);
+  }
+  burst.style.opacity=0;
+
+  var els={};
+  ['e1','chat','s1sub','l2','e3','letter','e4','rc','s4sub','bq','yn','cl','cs','bm','sl7','btn7','u7','fp7']
+    .forEach(function(k){ els[k]=document.querySelector('[data-k="'+k+'"]'); });
+  var chatText=document.getElementById('chatText');
+  var yesBtn=document.getElementById('yesBtn'), noBtn=document.getElementById('noBtn'), yesMsg=document.getElementById('yesMsg');
+  var cntBig=document.getElementById('cntBig');
+  var CHAT='Hari ini aku mau bilang sesuatu yang sudah lama aku pendam…';
+
+  function update(t){
+    var o,ty;
+    // S1 chat 0-8
+    o=seg(t,0.3,8,1.0); ty=(1-o)*24;
+    set(els.e1,o,ty*.5,1); set(els.chat,o,ty*.8,0.97+o*.03); set(els.s1sub,seg(t,5.5,8,0.9),(1-seg(t,5.5,8,0.9))*16,1);
+    var tp=smooth(Math.min(1,Math.max(0,(t-1.6*S)/(4.2*S))));
+    chatText.textContent=CHAT.slice(0,Math.floor(tp*CHAT.length));
+    // S2 line 8-15
+    o=seg(t,8,15,1.0); ty=(1-o)*26; set(els.l2,o,ty,1+(1-o)*.03);
+    // S3 letter 15-24 (unfold: scale+rotate)
+    o=seg(t,15,24,1.1);
+    var unfold=smooth(Math.min(1,Math.max(0,(t-15*S)/1.6)));
+    set(els.e3,seg(t,15,24,1.0),0,1);
+    set(els.letter,o,(1-o)*30,0.5+unfold*0.5,(1-unfold)*-8);
+    // S4 link 24-33
+    o=seg(t,24,33,1.0); ty=(1-o)*26;
+    set(els.e4,o,ty*.5,1); set(els.rc,o,ty,0.95+o*.05); set(els.s4sub,seg(t,27,33,0.9),(1-seg(t,27,33,0.9))*18,1);
+    // S5 question+YES 33-43
+    o=seg(t,33,43,1.0); ty=(1-o)*24;
+    set(els.bq,o,ty,0.96+o*.04); set(els.yn,seg(t,34.5,43,1.0),(1-seg(t,34.5,43,1.0))*24,1);
+    // YES press at ~38.5
+    if(t > 38.5*S){
+      yesBtn.style.transform='scale(1.18)'; yesBtn.style.boxShadow='0 0 80px rgba(255,107,157,.9)';
+      noBtn.style.opacity='0.25'; noBtn.style.transform='translateX(40px) scale(.9)';
+      burst.style.opacity=1;
+      yesMsg.style.opacity=smooth(Math.min(1,(t-39.5*S)/0.8));
+      yesMsg.style.transform='translateY('+(1-smooth(Math.min(1,(t-39.5*S)/0.8)))*20+'px)';
+    } else {
+      yesBtn.style.transform='scale(1)'; yesBtn.style.boxShadow='0 0 50px rgba(255,107,157,.6)';
+      noBtn.style.opacity='1'; noBtn.style.transform='none';
+      burst.style.opacity=0; yesMsg.style.opacity=0;
+    }
+    // S6 counter 43-51
+    o=seg(t,43,51,1.0); ty=(1-o)*24;
+    set(els.cl,o,ty,1); set(els.cs,o,ty*1.4,1);
+    var cp=smooth(Math.min(1,Math.max(0,(t-43.5*S)/(5.5*S))));
+    cntBig.textContent=Math.floor(cp*100);
+    cntBig.style.opacity=o; cntBig.style.transform='translateY('+ty+'px) scale('+(0.9+o*.1)+')';
+    // S7 CTA 51-60
+    o = t<51*S ? 0 : smooth(Math.min(1,(t-51*S)/1.1));
+    set(els.bm,o,(1-o)*16,0.9+o*.1);
+    set(els.sl7,o,(1-o)*24,0.95+o*.05);
+    set(els.btn7,o,(1-o)*28,0.96+o*.04);
+    set(els.u7,o,(1-o)*32,1);
+    set(els.fp7,o,(1-o)*36,1);
+  }
+
+  var acc=0, paused=false, started=false;
+  function frame(now){
+    var dt=Math.min(0.05,(now-last)/1000); last=now;
+    if(!paused) acc+=dt;
+    var t=Math.max(0,Math.min(DURATION,acc));
+    drawStars(dt);
+    update(t);
+    requestAnimationFrame(frame);
+  }
+  function start(){ if(started)return; started=true; last=performance.now(); requestAnimationFrame(frame); }
+  var ft=setTimeout(start,3000);
+  if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(function(){clearTimeout(ft);setTimeout(start,150);}); }
+  window.addEventListener('keydown',function(e){ if(e.key==='r'||e.key==='R'){acc=0;paused=false;} if(e.code==='Space'){e.preventDefault();paused=!paused;} });
+  // Hook untuk render frame-akurat (dipakai tools/record.mjs)
+  window.__AD = {
+    setTime: function(v){ acc = Math.max(0, Math.min(DURATION, v)); },
+    setPaused: function(b){ paused = !!b; },
+    getDuration: function(){ return DURATION; }
+  };
+})();
+</script>
+</body>
+</html>

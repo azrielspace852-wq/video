@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Romance Engine — Iklan 1: Sinematik</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,500;1,600&family=Urbanist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Romance Engine — Iklan 1 "Sinematik" (60 detik, HD 1920x1080)
+     Ubah DURATION di <script> untuk memperpanjang/memperpendek.
+     ============================================================ */
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Urbanist',system-ui,sans-serif}
+  #stage{
+    position:absolute;left:50%;top:50%;width:1920px;height:1080px;
+    transform:translate(-50%,-50%);transform-origin:center center;
+    background:#0D0208;overflow:hidden;
+  }
+  #bg{position:absolute;inset:0;z-index:1}
+  .vignette{position:absolute;inset:0;z-index:2;pointer-events:none;
+    background:radial-gradient(ellipse at center, transparent 42%, rgba(0,0,0,.55) 100%)}
+  .grain{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.06;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .bar{position:absolute;left:0;right:0;height:70px;background:#000;z-index:6;transition:transform 1.2s cubic-bezier(.22,1,.36,1)}
+  .bar.top{top:0;transform:translateY(-100%)}
+  .bar.bottom{bottom:0;transform:translateY(100%)}
+  body.ready .bar.top{transform:translateY(0)}
+  body.ready .bar.bottom{transform:translateY(0)}
+
+  .scene{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 160px;will-change:opacity,transform}
+  .eyebrow{font-family:'Urbanist';font-weight:600;letter-spacing:.42em;font-size:22px;color:#FF8FB1;text-transform:uppercase;margin-bottom:34px}
+  .line{font-family:'Playfair Display',serif;font-weight:500;font-size:78px;line-height:1.22;color:#FDF2F6;max-width:1400px;text-shadow:0 4px 40px rgba(244,63,127,.25)}
+  .line em{font-style:italic;color:#FF8FB1}
+  .sub{font-family:'Urbanist';font-weight:300;font-size:30px;letter-spacing:.06em;color:rgba(253,242,246,.68);margin-top:36px;max-width:1100px;line-height:1.5}
+
+  /* Product reveal */
+  .logo-heart{width:120px;height:120px;margin-bottom:28px;filter:drop-shadow(0 0 34px rgba(255,94,148,.65))}
+  .brand{font-family:'Playfair Display',serif;font-weight:900;font-size:150px;letter-spacing:.01em;
+    background:linear-gradient(100deg,#FFD6E4 0%,#FF8FB1 38%,#FF5E94 62%,#7DE8F5 110%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;line-height:1}
+  .tagline{font-family:'Urbanist';font-weight:500;font-size:34px;letter-spacing:.34em;text-transform:uppercase;color:#FDF2F6;margin-top:30px}
+  .tagline .dot{color:#FF5E94;margin:0 18px}
+
+  /* Feature words */
+  .feats{display:flex;flex-wrap:wrap;gap:26px 40px;justify-content:center;max-width:1300px;margin-top:10px}
+  .feat{font-family:'Playfair Display',serif;font-style:italic;font-weight:500;font-size:56px;color:#FDF2F6;
+    padding:18px 42px;border:1px solid rgba(255,143,177,.35);border-radius:999px;background:rgba(255,255,255,.03);
+    backdrop-filter:blur(4px)}
+  .feat b{font-style:normal;font-family:'Urbanist';font-weight:800;font-size:22px;vertical-align:super;color:#7DE8F5;letter-spacing:.1em;margin-right:10px}
+
+  /* Three steps */
+  .steps{display:flex;gap:60px;align-items:stretch;margin-top:20px}
+  .step{width:340px;padding:44px 34px;border-radius:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px);position:relative}
+  .step .n{font-family:'Playfair Display',serif;font-size:88px;font-weight:900;line-height:1;
+    background:linear-gradient(135deg,#FF8FB1,#FF5E94);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .step h3{font-family:'Urbanist';font-weight:700;font-size:30px;color:#FDF2F6;margin:18px 0 10px;letter-spacing:.02em}
+  .step p{font-family:'Urbanist';font-weight:300;font-size:21px;color:rgba(253,242,246,.62);line-height:1.5}
+  .step-arrow{position:absolute;right:-44px;top:50%;transform:translateY(-50%);color:#FF5E94;font-size:34px;opacity:.7}
+
+  /* CTA */
+  .cta-btn{margin-top:44px;display:inline-flex;align-items:center;gap:16px;padding:26px 64px;border-radius:999px;
+    background:linear-gradient(100deg,#FF5E94,#F43F7F);color:#fff;font-family:'Urbanist';font-weight:800;font-size:32px;letter-spacing:.04em;
+    box-shadow:0 10px 60px rgba(244,63,127,.5), inset 0 1px 0 rgba(255,255,255,.35)}
+  .cta-btn svg{width:34px;height:34px;fill:#fff}
+  .urls{display:flex;gap:26px;margin-top:40px}
+  .url-chip{font-family:'Urbanist';font-weight:600;font-size:24px;color:#FDF2F6;padding:16px 30px;border-radius:14px;
+    border:1px solid rgba(125,232,245,.4);background:rgba(125,232,245,.07);letter-spacing:.02em}
+  .url-chip span{color:#7DE8F5;font-weight:500;margin-right:10px;letter-spacing:.12em;font-size:18px;text-transform:uppercase}
+  .fineprint{margin-top:34px;font-family:'Urbanist';font-weight:300;font-size:19px;letter-spacing:.28em;text-transform:uppercase;color:rgba(253,242,246,.4)}
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bg" width="1920" height="1080"></canvas>
+  <div class="vignette"></div>
+  <div class="grain"></div>
+
+  <!-- Scene 1: line 1 -->
+  <div class="scene" id="s1">
+    <div class="eyebrow" data-k="e1">Sebuah perasaan</div>
+    <div class="line" data-k="l1">Kadang kata <em>“aku cinta kamu”</em><br>terasa tidak cukup.</div>
+  </div>
+
+  <!-- Scene 2: line 2 -->
+  <div class="scene" id="s2">
+    <div class="line" data-k="l2">Dan bunga biasa saja<br>terasa <em>terlalu biasa</em>.</div>
+    <div class="sub" data-k="s2sub">Perasaanmu layak dipanggungkan — bukan sekadar dikirim lewat chat.</div>
+  </div>
+
+  <!-- Scene 3: product reveal -->
+  <div class="scene" id="s3">
+    <svg class="logo-heart" data-k="heart" viewBox="0 0 24 24"><defs><linearGradient id="hg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB3C9"/><stop offset="1" stop-color="#FF5E94"/></linearGradient></defs><path fill="url(#hg1)" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    <div class="brand" data-k="brand">Romance Engine</div>
+    <div class="tagline" data-k="tag">Deklarasi Cinta<span class="dot">•</span>Sinematik</div>
+  </div>
+
+  <!-- Scene 4: features -->
+  <div class="scene" id="s4">
+    <div class="eyebrow" data-k="e4">Satu tautan. Segalanya.</div>
+    <div class="feats">
+      <div class="feat" data-k="f1"><b>01</b>Panggung 3D</div>
+      <div class="feat" data-k="f2"><b>02</b>Musik Pengiring</div>
+      <div class="feat" data-k="f3"><b>03</b>Surat Cinta Digital</div>
+      <div class="feat" data-k="f4"><b>04</b>Pertanyaan YES / NO</div>
+      <div class="feat" data-k="f5"><b>05</b>Penghitung Hari Spesial</div>
+    </div>
+  </div>
+
+  <!-- Scene 5: three steps -->
+  <div class="scene" id="s5">
+    <div class="eyebrow" data-k="e5">Tiga langkah menuju hatinya</div>
+    <div class="steps">
+      <div class="step" data-k="st1"><div class="n">1</div><h3>Tulis ceritamu</h3><p>Curahkan perasaanmu lewat surat, foto, dan kata-kata pilihan — tanpa menulis kode.</p><span class="step-arrow">→</span></div>
+      <div class="step" data-k="st2"><div class="n">2</div><h3>Terima tautan unikmu</h3><p>Satu tautan pribadi yang hidup, siap dikirim kepada dia kapan saja.</p><span class="step-arrow">→</span></div>
+      <div class="step" data-k="st3"><div class="n">3</div><h3>Biarkan dia merasakannya</h3><p>Visual 3D, musik, dan pertanyaan besar menyambutnya di layarnya.</p></div>
+    </div>
+  </div>
+
+  <!-- Scene 6: emotional line -->
+  <div class="scene" id="s6">
+    <div class="line" data-k="l6">Buat dia <em>merasakan</em>,<br>bukan sekadar membaca.</div>
+  </div>
+
+  <!-- Scene 7: CTA -->
+  <div class="scene" id="s7">
+    <svg class="logo-heart" data-k="c7" viewBox="0 0 24 24" style="width:84px;height:84px"><defs><linearGradient id="hg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB3C9"/><stop offset="1" stop-color="#FF5E94"/></linearGradient></defs><path fill="url(#hg2)" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    <div class="brand" data-k="b7" style="font-size:110px">Romance Engine</div>
+    <div class="cta-btn" data-k="btn7">
+      <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+      Buat Milikmu Sekarang
+    </div>
+    <div class="urls" data-k="u7">
+      <div class="url-chip"><span>Unduh</span>romance-engine.pages.dev</div>
+      <div class="url-chip"><span>Unduh</span>romance-engine.axn.cc.cd</div>
+    </div>
+    <div class="fineprint" data-k="fp7">Tanpa kode · Dalam hitungan menit · Satu tautan selamanya</div>
+  </div>
+
+  <div class="bar top"></div>
+  <div class="bar bottom"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  /* ============ KONFIGURASI ============ */
+  var DURATION = 60;          // durasi iklan (detik). Ubah ke 90 untuk 1.5 menit.
+  var S = DURATION / 60;      // skala waktu — semua adegan ikut meregang.
+  var W = 1920, H = 1080;
+
+  /* ============ FIT STAGE KE LAYAR ============ */
+  var stage = document.getElementById('stage');
+  function fit(){
+    var s = Math.min(window.innerWidth/W, window.innerHeight/H);
+    stage.style.transform = 'translate(-50%,-50%) scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit); fit();
+
+  /* ============ HELPERS ============ */
+  function smooth(x){ return x<=0?0:x>=1?1:x*x*(3-2*x); }
+  // alpha 0..1 untuk segmen [a,b] (detik dasar 60) dengan fade in/out = edge
+  function seg(t, a, b, edge){
+    a*=S; b*=S; if(edge===undefined) edge=0.9;
+    if(t<=a || t>=b) return 0;
+    var fi = Math.min(edge, (b-a)/2);
+    return Math.min(smooth((t-a)/fi), smooth((b-t)/fi));
+  }
+  function $(id){ return document.getElementById(id); }
+  function set(el, o, ty, sc){
+    if(!el) return;
+    el.style.opacity = o;
+    el.style.transform = 'translateY(' + (ty||0) + 'px) scale(' + (sc||1) + ')';
+  }
+
+  /* ============ PARTIKEL LATAR (hearts + dots) ============ */
+  var cv = $('bg'), ctx = cv.getContext('2d');
+  var parts = [];
+  function heartPath(x, y, r){
+    ctx.beginPath();
+    ctx.moveTo(x, y + r*0.3);
+    ctx.bezierCurveTo(x, y, x - r, y, x - r, y + r*0.55);
+    ctx.bezierCurveTo(x - r, y + r*1.15, x, y + r*1.6, x, y + r*1.9);
+    ctx.bezierCurveTo(x, y + r*1.6, x + r, y + r*1.15, x + r, y + r*0.55);
+    ctx.bezierCurveTo(x + r, y, x, y, x, y + r*0.3);
+    ctx.closePath();
+  }
+  for(var i=0;i<70;i++){
+    parts.push({
+      x: Math.random()*W, y: Math.random()*H,
+      r: 2+Math.random()*7, sp: 6+Math.random()*22,
+      a: .12+Math.random()*.35, hue: Math.random()<.78, ph: Math.random()*Math.PI*2,
+      isHeart: Math.random()<.35
+    });
+  }
+  var last = performance.now(), acc = 0, paused = false, started = false;
+  function drawParticles(dt){
+    ctx.clearRect(0,0,W,H);
+    // ambient glow
+    var g = ctx.createRadialGradient(W*0.5, H*0.42, 60, W*0.5, H*0.42, W*0.7);
+    g.addColorStop(0, 'rgba(122,16,62,0.20)');
+    g.addColorStop(1, 'rgba(13,2,8,0)');
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    for(var i=0;i<parts.length;i++){
+      var p = parts[i];
+      p.y -= p.sp*dt; p.ph += dt*1.2;
+      if(p.y < -30){ p.y = H+30; p.x = Math.random()*W; }
+      var tw = 0.65 + 0.35*Math.sin(p.ph);
+      ctx.globalAlpha = p.a*tw;
+      if(p.isHeart){
+        ctx.fillStyle = p.hue? '#FF5E94' : '#7DE8F5';
+        heartPath(p.x, p.y, p.r*1.4); ctx.fill();
+      } else {
+        ctx.fillStyle = p.hue? '#FF8FB1' : '#BFE9FF';
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r*0.5, 0, Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /* ============ TIMELINE UPDATE ============ */
+  var els = {};
+  ['e1','l1','l2','s2sub','heart','brand','tag','e4','f1','f2','f3','f4','f5','e5','st1','st2','st3','l6','c7','b7','btn7','u7','fp7']
+    .forEach(function(k){ els[k]=document.querySelector('[data-k="'+k+'"]'); });
+
+  function update(t){
+    var o, ty;
+    // Scene 1 (3 - 9.5)
+    o = seg(t, 3, 9.5, 1.0); ty = (1-o)*26;
+    set(els.e1, o, ty*0.6, 1); set(els.l1, o, ty, 1+(1-o)*0.03);
+    // Scene 2 (10 - 16.5)
+    o = seg(t, 10, 16.5, 1.0); ty = (1-o)*26;
+    set(els.l2, o, ty, 1+(1-o)*0.03); set(els.s2sub, o, ty*1.4, 1);
+    // Scene 3 product (17 - 26)
+    o = seg(t, 17, 26, 1.2); ty = (1-o)*30;
+    set(els.heart, o, ty*0.5, 0.7+o*0.3); set(els.brand, o, ty, 0.92+o*0.08); set(els.tag, o, ty*1.5, 1);
+    // Scene 4 features (26.5 - 36.5), staggered
+    set(els.e4, seg(t, 26.5, 36.5, 1.0), 0, 1);
+    var fs = ['f1','f2','f3','f4','f5'];
+    for(var i=0;i<fs.length;i++){
+      o = seg(t, 27.2 + i*0.7, 36.5, 0.9);
+      set(els[fs[i]], o, (1-o)*24, 0.94+o*0.06);
+    }
+    // Scene 5 steps (37 - 45.5)
+    set(els.e5, seg(t, 37, 45.5, 1.0), 0, 1);
+    var ss = ['st1','st2','st3'];
+    for(var j=0;j<ss.length;j++){
+      o = seg(t, 37.8 + j*0.8, 45.5, 0.9);
+      set(els[ss[j]], o, (1-o)*30, 0.95+o*0.05);
+    }
+    // Scene 6 emotional (46 - 51.5)
+    o = seg(t, 46, 51.5, 1.0); ty=(1-o)*26;
+    set(els.l6, o, ty, 1+(1-o)*0.03);
+    // Scene 7 CTA (52 - 60) — hold, fade in only
+    o = smooth(Math.min(1, Math.max(0, (t - 52*S)/1.2)));
+    if(t < 52*S) o = 0;
+    set(els.c7, o, (1-o)*20, 0.85+o*0.15);
+    set(els.b7, o, (1-o)*26, 0.94+o*0.06);
+    set(els.btn7, o, (1-o)*30, 0.96+o*0.04);
+    set(els.u7, o, (1-o)*34, 1);
+    set(els.fp7, o, (1-o)*38, 1);
+  }
+
+  /* ============ LOOP ============ */
+  function frame(now){
+    var dt = Math.min(0.05, (now-last)/1000); last = now;
+    if(!paused) acc += dt;
+    var t = Math.max(0, Math.min(DURATION, acc));
+    drawParticles(dt);
+    update(t);
+    requestAnimationFrame(frame);
+  }
+
+  function start(){
+    if(started) return; started = true;
+    document.body.classList.add('ready');
+    last = performance.now();
+    requestAnimationFrame(frame);
+  }
+  // Tunggu font siap agar tidak ada layout-shift saat rekam.
+  var fontTimer = setTimeout(start, 3000);
+  if(document.fonts && document.fonts.ready){
+    document.fonts.ready.then(function(){ clearTimeout(fontTimer); setTimeout(start, 150); });
+  }
+  // Tombol: R = ulang dari awal, Spasi = jeda.
+  window.addEventListener('keydown', function(e){
+    if(e.key==='r' || e.key==='R'){ acc = 0; paused = false; }
+    if(e.code==='Space'){ e.preventDefault(); paused = !paused; }
+  });
+  // Hook untuk render frame-akurat (dipakai tools/record.mjs)
+  window.__AD = {
+    setTime: function(v){ acc = Math.max(0, Math.min(DURATION, v)); },
+    setPaused: function(b){ paused = !!b; },
+    getDuration: function(){ return DURATION; }
+  };
+})();
+</script>
+</body>
+</html>
