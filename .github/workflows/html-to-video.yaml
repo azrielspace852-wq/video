@@ -1,0 +1,203 @@
+name: HTML → MP4 Renderer
+
+# Render every .html file under any video/ (or videos/) folder in this repo
+# into a silent MP4: 60 fps, 2K (long side 2560px), aspect ratio auto-detected
+# from the HTML. One video per matrix job (parallel). Results are uploaded as
+# a single MP4 artifact when there is exactly one file, or as videos.zip when
+# there are several.
+
+on:
+  workflow_dispatch:
+    inputs:
+      fps:
+        description: "Target frames per second"
+        default: "60"
+        required: false
+      long_side:
+        description: "Longer side of the output in px (2K = 2560)"
+        default: "2560"
+        required: false
+      crf:
+        description: "x264 CRF (lower = better quality, bigger file)"
+        default: "23"
+        required: false
+      preset:
+        description: "x264 preset (use a fast preset for real-time capture)"
+        default: "ultrafast"
+        required: false
+      default_duration_seconds:
+        description: "Fallback duration when an HTML file does not specify one"
+        default: "10"
+        required: false
+      max_duration_minutes:
+        description: "Hard cap per video (protects against runaway renders)"
+        default: "30"
+        required: false
+      job_timeout_minutes:
+        description: "GitHub job timeout per video (must exceed max duration)"
+        default: "60"
+        required: false
+  push:
+    paths:
+      - "video/**"
+      - "videos/**"
+      - ".github/workflows/html-to-video.yml"
+      - "scripts/render_html_to_video.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: html2video-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  # ------------------------------------------------------------------ discover
+  discover:
+    name: Discover HTML files
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      count: ${{ steps.set.outputs.count }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find video/**/*.html
+        id: set
+        run: |
+          set -euo pipefail
+          FILES=$(find . -type f \( -path '*/video/*' -o -path '*/videos/*' \) \
+                 -name '*.html' \
+                 -not -path '*/node_modules/*' \
+                 -not -path '*/.git/*' | sort)
+
+          if [ -z "$FILES" ]; then
+            echo "::error::No .html files found under any video/ or videos/ folder in the repository."
+            exit 1
+          fi
+
+          COUNT=$(echo "$FILES" | grep -c .)
+          MATRIX=$(echo "$FILES" | jq -Rsc 'split("\n") | map(select(length>0)) | {include: map({html: .})}')
+
+          echo "Found $COUNT HTML file(s):"
+          echo "$FILES" | sed 's/^/  - /'
+
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
+  # -------------------------------------------------------------------- render
+  render:
+    name: Render ${{ matrix.html }}
+    needs: discover
+    if: needs.discover.outputs.count > 0
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.job_timeout_minutes || '60') }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ffmpeg + Xvfb
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg xvfb x11-utils
+
+      - name: Install Playwright + Chromium
+        run: |
+          pip install --quiet playwright
+          playwright install --with-deps chromium
+
+      - name: Render HTML → MP4
+        id: render
+        run: |
+          MAX_DUR_SEC=$(( ${{ fromJSON(inputs.max_duration_minutes || '30') }} * 60 ))
+          python3 scripts/render_html_to_video.py \
+            --html "${{ matrix.html }}" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --out-dir rendered \
+            --fps "${{ inputs.fps || '60' }}" \
+            --long-side "${{ inputs.long_side || '2560' }}" \
+            --crf "${{ inputs.crf || '23' }}" \
+            --preset "${{ inputs.preset || 'ultrafast' }}" \
+            --default-duration "${{ inputs.default_duration_seconds || '10' }}" \
+            --max-duration "$MAX_DUR_SEC"
+
+      - name: Upload rendered part
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: part-${{ strategy.job-index }}
+          path: rendered/
+          if-no-files-found: error
+          retention-days: 7
+
+  # ------------------------------------------------------------------- package
+  package:
+    name: Package artifact(s)
+    needs: [discover, render]
+    if: always() && needs.discover.outputs.count > 0
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all rendered parts
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          pattern: part-*
+          merge-multiple: true
+          path: all
+
+      - name: Build final artifact
+        id: build
+        run: |
+          set -euo pipefail
+          COUNT="${{ needs.discover.outputs.count }}"
+          mkdir -p all final
+
+          # Merge per-file manifests into one index.
+          if ls all/*.manifest.json >/dev/null 2>&1; then
+            jq -s '.' all/*.manifest.json > final/manifest.json
+            echo "Merged $(jq 'length' final/manifest.json) manifest entry/entries."
+          fi
+
+          MP4S=$(find all -maxdepth 1 -name '*.mp4' | sort)
+          N_MP4=$(echo "$MP4S" | grep -c . || true)
+
+          if [ "$N_MP4" -eq 0 ]; then
+            echo "::error::No MP4 files were produced by the render jobs."
+            ls -la all || true
+            exit 1
+          fi
+
+          if [ "$COUNT" -eq 1 ] && [ "$N_MP4" -eq 1 ]; then
+            # Single video: attach the raw MP4 (no zip).
+            cp "$MP4S" final/
+            echo "mode=single" >> "$GITHUB_OUTPUT"
+            echo "Attached single MP4: $(basename "$MP4S")"
+          else
+            # Multiple videos (or partial failures): bundle into a zip.
+            ( cd all && zip -9 -j "${GITHUB_WORKSPACE}/final/videos.zip" *.mp4 )
+            # Include the merged manifest inside the zip too.
+            ( cd final && zip -9 -g videos.zip manifest.json ) || true
+            echo "mode=zip" >> "$GITHUB_OUTPUT"
+            echo "Bundled $N_MP4 video(s) into videos.zip"
+          fi
+
+          ls -la final
+
+      - name: Upload final artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-videos
+          path: final/
+          if-no-files-found: error
+          retention-days: 30
+ 
