@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Contoh Animasi</title>
+<meta name="video-aspect"     content="16:9">
+<meta name="video-duration"   content="4">
+<meta name="video-fps"        content="60">
+<meta name="video-background" content="#0f172a">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    overflow: hidden; background: #0f172a;
+  }
+  .stage {
+    position: relative; width: 100%; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  .title {
+    color: #fff; font-size: 8vmin; font-weight: 800;
+    letter-spacing: -0.03em;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .dot {
+    position: absolute; width: 3vmin; height: 3vmin;
+    border-radius: 50%; background: #22d3ee;
+    animation: orbit 4s linear infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: scale(1);    opacity: 1;    }
+    50%      { transform: scale(1.08); opacity: 0.85; }
+  }
+  @keyframes orbit {
+    from { transform: rotate(0deg)   translateX(25vmin) rotate(0deg);   }
+    to   { transform: rotate(360deg) translateX(25vmin) rotate(-360deg);}
+  }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="title">Hello, World</div>
+    <div class="dot"></div>
+  </div>
+</body>
+</html> 
