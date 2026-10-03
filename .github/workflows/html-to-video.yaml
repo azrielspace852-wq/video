@@ -163,9 +163,16 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SIGNING_PRIVATE_KEY: ${{ secrets.SIGNING_PRIVATE_KEY }}
-      SIGN_KEY_CACHE: ${{ runner.temp }}/axion-signing-key.pem
     steps:
       - uses: actions/checkout@v4
+
+      # `runner` context is unavailable in a job-level `env:` block (it is
+      # evaluated before a runner is assigned, which triggers
+      # "Unrecognized named-value: 'runner'"). Derive the path from the
+      # $RUNNER_TEMP env var inside a step and export it to later steps via
+      # $GITHUB_ENV instead.
+      - name: Set signing-key cache path
+        run: echo "SIGN_KEY_CACHE=$RUNNER_TEMP/axion-signing-key.pem" >> "$GITHUB_ENV"
 
       - name: Download all rendered parts
         continue-on-error: true
